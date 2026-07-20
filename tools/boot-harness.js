@@ -64,7 +64,21 @@ function makeEl(tag, id) {
   // selector so repeat lookups return the same node, as the DOM would.
   el._qs = new Map();
   el.querySelector = sel => { if (!el._qs.has(sel)) el._qs.set(sel, makeEl('div')); return el._qs.get(sel); };
-  el.querySelectorAll = () => [];      // wpShow() early-returns on an empty page list — fine
+  // Returning [] here used to make the whole welcome-screen flow untestable — and a broken
+  // "Start building" button shipped because of it. Now class selectors return as many stub
+  // nodes as the real HTML actually contains, so page navigation can be exercised.
+  el._qsa = new Map();
+  el.querySelectorAll = sel => {
+    if (el._qsa.has(sel)) return el._qsa.get(sel);
+    let out = [];
+    const m = /^\.([\w-]+)$/.exec(String(sel).trim());
+    if (m) {
+      const n = (html.match(new RegExp('class="[^"]*\\b' + m[1] + '\\b[^"]*"', 'g')) || []).length;
+      out = Array.from({ length: n }, () => { const e = makeEl('div'); e._cls.add(m[1]); return e; });
+    }
+    el._qsa.set(sel, out);
+    return out;
+  };
   el.closest = () => null;
   el.getContext = () => makeCtx();
   el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200, x: 0, y: 0 });
@@ -329,7 +343,9 @@ try {
     'cycleTod:typeof cycleTod!=="undefined"?cycleTod:null, voice:typeof voice!=="undefined"?voice:null, ' +
     'ensureAudio:typeof ensureAudio!=="undefined"?ensureAudio:null, scoreTick:typeof scoreTick!=="undefined"?scoreTick:null, ' +
     'updateAudio:typeof updateAudio!=="undefined"?updateAudio:null, photoMode:typeof photoMode!=="undefined"?photoMode:null, ' +
-    'sun:typeof sun!=="undefined"?sun:null, nightT:function(){return nightT;}, todLock:function(){return todLock;}};');
+    'sun:typeof sun!=="undefined"?sun:null, nightT:function(){return nightT;}, todLock:function(){return todLock;}, ' +
+    'wpPages:typeof wpPages!=="undefined"?wpPages:null, openHelp:typeof openHelp!=="undefined"?openHelp:null, ' +
+    'startBtn:typeof startBtn!=="undefined"?startBtn:null, started:function(){return started;}};');
   api = fn(...sandboxVals);
 } catch (e) { bootError = e; }
 
@@ -373,6 +389,23 @@ if (require.main === module) {
     for (let i = 0; i < months; i++) api.monthly();
     ok(`${months} months simulated · pop=${S.pop} · funds=${Math.round(S.money)} · approval=${S.approval}%`);
   } catch (e) { bad('monthly() threw: ' + e.message + '\n' + (e.stack || '').split('\n')[1]); }
+
+  console.log('\n=== WELCOME FLOW ===');
+  try {
+    api.openHelp(true);
+    const firstRun = api.wpPages().length;
+    const total = (fs.readFileSync(path, 'utf8').match(/class="wpage/g) || []).length;
+    if (firstRun === 1) ok(`first run shows 1 screen of ${total} (the rest is reference behind ?)`);
+    else bad(`first run shows ${firstRun} screens — onboarding wall is back`);
+    // The button must walk the VISIBLE list. Walking the raw list advanced to a hidden
+    // page and looked like a dead button.
+    api.startBtn.dispatch('click');
+    if (api.started()) ok('"Start building" starts the game on the first click');
+    else bad('"Start building" did not start the game — it is walking hidden pages again');
+    api.openHelp(false);
+    if (api.wpPages().length === total) ok(`? reopens the full ${total}-page briefing`);
+    else bad(`? briefing shows ${api.wpPages().length} of ${total} pages`);
+  } catch (e) { bad('welcome flow threw: ' + e.message + '\n' + (e.stack || '').split('\n')[1]); }
 
   console.log('\n=== BUILD A CITY (exercises the real growth path) ===');
   try {

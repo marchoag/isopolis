@@ -308,6 +308,52 @@
   .cta:hover{filter:brightness(1.07)}
   .ghost{padding:9px 16px; border-radius:10px; font-weight:700; font-size:13px; background:rgba(255,255,255,.07)}
 
+  /* ---------- mode chooser (start screen) ---------- */
+  .modeBtn{
+    flex:1; text-align:left; padding:12px 14px; border-radius:11px; cursor:pointer;
+    background:rgba(255,255,255,.04); border:1px solid var(--panel-line);
+    transition:background .15s, border-color .15s, transform .12s;
+  }
+  .modeBtn:hover{background:rgba(255,255,255,.07); transform:translateY(-1px)}
+  .modeBtn.on{background:rgba(255,195,77,.10); border-color:rgba(255,195,77,.45)}
+  .modeBtn .mtitle{font-weight:800; font-size:13.5px; color:#f0f4f7; display:flex; align-items:center; gap:7px}
+  .modeBtn.on .mtitle{color:var(--amber)}
+  .modeBtn .mdesc{font-size:11.5px; line-height:1.45; color:var(--dim); margin-top:5px}
+  .modeBtn .mtag{font-size:8.5px; letter-spacing:.14em; text-transform:uppercase; padding:2px 6px; border-radius:5px; background:rgba(255,195,77,.16); color:var(--amber)}
+
+  /* ---------- anchored map chips ----------
+     Persistent, camera-tracking popups pinned to a tile. Unlike #circlePopup these survive
+     canvas clicks and stay until resolved; exactly one is open at a time. */
+  #chipLayer{position:fixed; inset:0; z-index:24; pointer-events:none}
+  .mapChip{
+    position:absolute; transform:translate(-50%, calc(-100% - 15px));
+    min-width:215px; max-width:295px; padding:12px 13px 11px;
+    pointer-events:auto; opacity:0; transition:opacity .16s ease;
+  }
+  .mapChip.show{opacity:1}
+  .mapChip::after{
+    content:""; position:absolute; left:50%; bottom:-6px; width:11px; height:11px;
+    transform:translateX(-50%) rotate(45deg); background:rgba(11,18,25,.90);
+    border-right:1px solid var(--panel-line); border-bottom:1px solid var(--panel-line);
+  }
+  .mapChip .ctitle{font-weight:800; font-size:13px; color:#f0f4f7; line-height:1.3; padding-right:16px}
+  .mapChip .csub{font-size:10.5px; color:var(--dim); margin-top:2px; line-height:1.4}
+  .mapChip .cbody{font-size:12px; color:#cfdbe4; line-height:1.5; margin-top:8px}
+  .mapChip .cbtns{display:flex; flex-direction:column; gap:6px; margin-top:11px}
+  .mapChip .cbtn{
+    display:block; width:100%; text-align:left; padding:8px 10px; border-radius:8px;
+    font-size:12px; font-weight:700; cursor:pointer; line-height:1.35;
+    background:rgba(255,255,255,.06); border:1px solid var(--panel-line); color:#e7eef3;
+    transition:background .13s, border-color .13s;
+  }
+  .mapChip .cbtn:hover:not(:disabled){background:rgba(255,255,255,.11); border-color:rgba(255,255,255,.2)}
+  .mapChip .cbtn.primary{background:rgba(255,195,77,.13); border-color:rgba(255,195,77,.38); color:var(--amber)}
+  .mapChip .cbtn.primary:hover:not(:disabled){background:rgba(255,195,77,.2)}
+  .mapChip .cbtn:disabled{opacity:.42; cursor:not-allowed}
+  .mapChip .cbtn .cwhy{display:block; font-weight:500; font-size:10.5px; color:var(--dim); margin-top:3px}
+  .mapChip .cclose{position:absolute; top:6px; right:8px; font-size:15px; line-height:1; color:var(--dim); cursor:pointer; padding:2px 5px; border-radius:5px}
+  .mapChip .cclose:hover{color:var(--txt); background:rgba(255,255,255,.07)}
+
   @media (max-width:840px){
     #cityName,#brand .word{display:none}
     #top{gap:10px; padding:0 10px}
@@ -334,6 +380,7 @@
   <div class="stat"><span class="lbl">Population</span><b class="num" id="popV">0</b></div>
   <div class="stat"><span class="lbl">Date</span><b class="num" id="dateV">Jan 2000</b></div>
   <div class="stat clk" id="apprStat" title="Click for the approval breakdown"><span class="lbl">Approval&nbsp;<span style="opacity:.6;font-size:13px;vertical-align:-1px">&#9432;</span></span><b class="num" id="apprV">&mdash;</b></div>
+  <div class="stat clk" id="pcStat" style="display:none" title="Political capital"><span class="lbl">Capital</span><b class="num" id="pcV">0</b></div>
   <div class="lean" id="leanWrap" data-tip="Your stance on conservation vs growth — set by how you treat protected land">
     <span class="pl">🌲</span>
     <div class="leanBar"><i id="leanMark"></i><i id="popMark" class="popm"></i></div>
@@ -345,6 +392,7 @@
     <button data-s="3" data-tip="Fast">⏩</button>
     <button data-s="5" data-tip="Turbo">⏭</button>
   </div>
+  <button class="ibtn" id="hallBtn" data-tip="City Hall — factions, council, pending business" style="display:none">🏛️</button>
   <button class="ibtn" id="budgetBtn" data-tip="Budget & taxes">💰</button>
   <button class="ibtn" id="saveBtn" data-tip="Save city to file">💾</button>
   <button class="ibtn" id="loadBtn" data-tip="Load city from file">📂</button>
@@ -364,6 +412,13 @@
     <div class="col"><div class="bar"><i id="barI" style="background:var(--i)"></i></div><span class="tag I">I</span></div>
     <div class="col"><div class="bar"><i id="barO" style="background:var(--o)"></i></div><span class="tag" style="color:var(--o)">O</span></div>
   </div>
+  <div id="poolRow" class="clk" style="display:none;margin-top:9px;padding-top:8px;border-top:1px solid var(--panel-line)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+      <span style="font-size:11px;color:var(--dim)">👪 waiting</span>
+      <b id="poolV" class="num" style="font-size:14px">0</b>
+    </div>
+    <div id="advV" style="font-size:10px;line-height:1.4;color:var(--dim);margin-top:4px"></div>
+  </div>
 </div>
 
 <div id="tut" class="glass" style="display:none"><div class="hd">First steps<a id="tutSkip">skip</a></div><div id="tutRows"></div></div>
@@ -371,6 +426,7 @@
 <div id="tools" class="glass"></div>
 
 <div id="chip" class="glass"></div>
+<div id="chipLayer"></div>
 <div id="toasts"></div>
 
 <div id="ticker">
@@ -411,17 +467,55 @@
       <div class="wpage on" data-wp="0">
         <div class="pillars">
           <div class="pillar"><div class="pico">🏗️</div><div class="ptx"><b>Build the city.</b> Lay roads, zone neighborhoods, keep the power on. Homes and shops fill in on their own as people move in.</div></div>
-          <div class="pillar"><div class="pico">🗳️</div><div class="ptx"><b>Win the people.</b> Every four years you face re-election. Meet demand, hold the mood, stay in the black.</div></div>
+          <div class="pillar"><div class="pico">🗳️</div><div class="ptx"><b>Win the people.</b> Every few years you face re-election. Meet demand, hold the mood, stay in the black.</div></div>
           <div class="pillar"><div class="pico">⚠️</div><div class="ptx"><b>Don’t get fired.</b> Lose twice in a row — or bankrupt the treasury — and your run ends. Governing has stakes.</div></div>
         </div>
         <div id="nameRow" style="display:flex;align-items:center;gap:11px;margin:22px 0 4px">
           <label for="cityNameInput" style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);white-space:nowrap">Name your city</label>
           <input id="cityNameInput" type="text" maxlength="28" placeholder="leave blank for a random one" style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--panel-line);border-radius:8px;padding:10px 13px;color:var(--ink);font:inherit;font-size:15px" />
         </div>
+        <div id="modeRow" style="margin:18px 0 4px">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);margin-bottom:9px">Choose your game</div>
+          <div style="display:flex;gap:9px">
+            <button class="modeBtn on" data-mode="campaign">
+              <div class="mtitle">Campaign <span class="mtag">default</span></div>
+              <div class="mdesc">Land must be bought, people must be courted, and the map pushes back. Longer terms, tighter money, a city that has to be earned.</div>
+            </button>
+            <button class="modeBtn" data-mode="classic">
+              <div class="mtitle">Classic</div>
+              <div class="mdesc">The original sandbox. Free zoning, generous grants, four-year terms. Build without friction.</div>
+            </button>
+          </div>
+        </div>
         <p style="margin:16px 0 0;font-size:13.5px;line-height:1.5;color:var(--dim)">Next: how the voters actually think. It's the heart of the game. &rsaquo; <span style="color:var(--dim);font-size:11px;letter-spacing:.08em">v2.0</span></p>
       </div>
 
       <div class="wpage" data-wp="1">
+        <h2>The land isn’t yours yet</h2>
+        <p style="margin:0 0 16px;font-size:14.5px;line-height:1.55;color:#cfdbe4">You start with one small town’s worth of land. Everything beyond the <b style="color:#ffc95c">amber city limit</b> belongs to the county — and it has to be bought.</p>
+
+        <div style="display:flex;gap:9px;margin-bottom:16px">
+          <div style="flex:1;background:rgba(120,200,130,.09);border:1px solid rgba(120,200,130,.28);border-radius:10px;padding:11px 13px">
+            <div style="color:#7fdc8e;font-weight:800;font-size:12px;margin-bottom:5px">Green &middot; city land</div>
+            <div style="font-size:12.5px;line-height:1.45;color:#cfdbe4">Zone it, pave it, build on it. This is your city.</div>
+          </div>
+          <div style="flex:1;background:rgba(150,135,95,.12);border:1px solid rgba(190,170,120,.3);border-radius:10px;padding:11px 13px">
+            <div style="color:#e2ce9e;font-weight:800;font-size:12px;margin-bottom:5px">Hatched &middot; county land</div>
+            <div style="font-size:12.5px;line-height:1.45;color:#cfdbe4">Roads may cross it. Nothing may be built on it until you annex it.</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,195,77,.08);border:1px solid rgba(255,195,77,.26);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+          <div style="font-size:12.5px;line-height:1.5;color:#e7eef3"><b style="color:var(--amber)">📜 Annex land — press T</b><br>
+          Drag across the hatched squares to buy them. Land is sold in 4&times;4 parcels; the price rises with your city and with the value of the ground, and <b>falls in a recession</b>. Expanding is a decision, not a formality.</div>
+        </div>
+
+        <h2 style="margin-top:4px">Some of it already has people on it</h2>
+        <p style="margin:0 0 10px;font-size:14.5px;line-height:1.55;color:#cfdbe4">The little houses with <b style="color:#f2e8d5">picket signs</b> are homesteads — families who were here decades before you. Annexing the parcel does <b>not</b> buy their home.</p>
+        <p style="margin:0;font-size:13px;line-height:1.5;color:var(--dim)">Run a road at one and it stops at the fence. You’ll be offered every exit there is: pay far over the odds, fight it through the courts for months, or bend the road around them — and that bend stays on your map forever. Some owners simply will not sell at any price.</p>
+      </div>
+
+      <div class="wpage" data-wp="2">
         <h2>How the voters think</h2>
         <p style="margin:0 0 15px;font-size:14.5px;line-height:1.55;color:#cfdbe4">Your <b style="color:#f0f4f7">Approval</b> is your vote share on election day. Two forces set it — the <b style="color:#f0f4f7">basics</b>, and the <b style="color:#f0f4f7">civic mood</b>.</p>
 
@@ -454,7 +548,7 @@
         <p style="margin:15px 0 0;font-size:12.5px;line-height:1.5;color:var(--dim)">Keep the meter near <b style="color:#cfdbe4">content</b> and approval takes care of itself. Lose two elections in a row — or stay in the red for ten months — and your run ends.</p>
       </div>
 
-      <div class="wpage" data-wp="2">
+      <div class="wpage" data-wp="3">
         <h2>Your first moves</h2>
         <ol style="margin:6px 0 0;padding-left:20px;line-height:1.7;font-size:14.5px">
           <li>Lay a few <b>roads</b> (R), then drop a <b>power plant</b> (U) and wire it to them.</li>
@@ -465,7 +559,7 @@
         <p style="margin:14px 0 0;font-size:13px;line-height:1.55;color:var(--dim)">And mind the treasury &mdash; debt charges interest, and ten straight months in the red ends your run.</p>
       </div>
 
-      <div class="wpage" data-wp="3">
+      <div class="wpage" data-wp="4">
         <h2>Controls</h2>
         <div class="keys">
           <kbd>Left drag</kbd><span>Use the tool &mdash; roads draw lines, zones draw rectangles</span>
@@ -532,6 +626,158 @@ const CAPS = {
 };
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CITY_NAMES = ['Pixelton','Gridhaven','Mill Vale','Voxburg','Ortho Falls','Bitwick','New Cascadia','Quartz Creek','Simwood','Lomadale'];
+const START_YEAR = 2000;
+
+/* ============================== CFG (overhaul tuning) ==============================
+   One table for every constant the overhaul introduces or modifies. Nothing new goes
+   inline: if a number needs tuning, it lives here.
+
+   Two presets, not two code paths:
+     classic  — the original sandbox. Free zoning, full grants, 4-year terms, no politics gates.
+     campaign — the overhaul. Longer terms, softer red-month penalty, and (from Phase 1 on)
+                the land/people/money/traffic scarcities.
+   Read through CFG.<section>.<key>; switch with setMode(). Phase 1–3 append their own
+   sections here (pool, land, bonds, pc, factions, council, tod, audio…). */
+const CFG_PRESETS = {
+  classic: {
+    election: {
+      termYears: 4,          // years between elections
+      probationYears: 2,     // shortened term after a recall
+      barBase: 43, barPerTerm: 2.2, barTermCap: 5,   // win threshold = base + min(term,cap)*perTerm
+      incumbency: 4,         // flat bump sitting mayors get on election day
+      swingLo: -3, swingHi: 5,
+      recallSeizure: 0.15    // fraction of treasury lost to a recall
+    },
+    approval: {
+      base: 55, demand: 0.18, tax: 2.4, pollution: 30, crime: 27,
+      blackout: 1.3, green: 16, leanGap: 0.16,
+      redPerMonth: 2.5, redCap: 15
+    },
+    /* Classic keeps every Phase 1 gate switched off, so it plays as the original sandbox. */
+    land:         { enabled:false, baseTile:22, lvPer:120, water:6, scaleCap:2.5, scaleDiv:12000, founding:3 },
+    zoning:       { base:{res:0,com:0,ind:0,farm:0,mix:0,office:0}, highMul:1 },
+    pool:         { enabled:false, start:9999, decay:1, floor:1, growBase:3, growPer:0.022, startFrac:0.7,
+                    marketingCost:1200, marketingBoost:0.40, marketingMonths:6 },
+    construction: { enabled:false, months:[0,0,0,0,0], farmMonths:0 },
+    materials:    { enabled:false, start:40, perOccI:0.7, perCapNeed:0.8, importPrice:7 },
+    bonds:        { enabled:false, block:5000, baseCap:6000, caps:[10000,20000,35000,60000,100000,160000,250000],
+                    ratioA:0.15, ratioB:0.30, rateA:0.005, rateB:0.007, rateC:0.010, freezeRedMonths:99 },
+    econ:         { enabled:false, amp:0.28, period:300, driftStep:0.02, driftCap:0.10, lo:0.65, hi:1.35, gracePop:1000 },
+    growth:       { l0Div:140, lvlDiv:165, fullnessDevWeight:0.12, jobsFloor:0.45, congestion:99, pioneers:0, samples:30 },
+    milestoneRewards: [1000, 3000, 7000, 18000, 45000, 100000, 250000],
+    politics:     { enabled:false }
+  },
+  campaign: {
+    election: {
+      // 8-year terms: the campaign is 10-30x longer than the original game, and a
+      // 4-year cycle would mean dozens of pausing modals per run.
+      termYears: 8,
+      probationYears: 4,
+      barBase: 43, barPerTerm: 2.2, barTermCap: 5,
+      incumbency: 4,
+      swingLo: -3, swingHi: 5,
+      recallSeizure: 0.15
+    },
+    approval: {
+      base: 55, demand: 0.18, tax: 2.4, pollution: 30, crime: 27,
+      blackout: 1.3, green: 16, leanGap: 0.16,
+      // softened: the overhauled economy makes red months normal, so the original
+      // -2.5/mo (cap -15) would compound with the credit freeze into a death spiral.
+      redPerMonth: 1.25, redCap: 10
+    },
+    /* PHASE 1 — four legible scarcities and deliberately not more: land, people, money, traffic. */
+    land: {
+      enabled:true,
+      baseTile:22,        // §/tile floor price
+      lvPer:120,          // + land value * this
+      water:6,            // water tiles are near-worthless
+      scaleCap:2.5,       // cap on city-size inflation, so late infill is a project not a mortgage
+      scaleDiv:12000,     // cityScale = min(scaleCap, 1 + pop/scaleDiv)
+      founding:4          // 4x4 tracts = a 16x16 starting town — room to establish before annexing
+    },
+    // Flat per-tile fee. Deliberately NO land-value term: land value is already priced at
+    // annexation, and charging it twice reads as nickel-and-diming.
+    zoning: { base:{res:10, com:14, ind:12, farm:3, mix:24, office:20}, highMul:2.2 },
+    pool: {
+      enabled:true, start:12,
+      decay:0.97,         // waiting families drift elsewhere
+      floor:1,            // hard anti-death-spiral floor on monthly inflow
+      growBase:3, growPer:0.022,
+      startFrac:0.7,      // a start commits 70% of the capacity gained; monthly fill does the rest
+      marketingCost:1200, marketingBoost:0.40, marketingMonths:6   // the one active lever / recession answer
+    },
+    construction: { enabled:true, months:[0,2,3,5,8], farmMonths:1 },
+    materials:    { enabled:true, start:40, perOccI:0.7, perCapNeed:0.8, importPrice:7 },
+    bonds: {
+      enabled:true, block:5000, baseCap:6000,
+      caps:[10000,20000,35000,60000,100000,160000,250000],   // milestones raise borrowing power, not cash
+      ratioA:0.15, ratioB:0.30,                              // debt service / income -> rating
+      rateA:0.005, rateB:0.007, rateC:0.010,                 // monthly interest by rating
+      freezeRedMonths:4                                      // credit freeze: a cliff you watch approach
+    },
+    econ: { enabled:true, amp:0.28, period:300, driftStep:0.02, driftCap:0.10, lo:0.65, hi:1.35, gracePop:1000 },
+    growth: {
+      // Dice stay GENEROUS. With pools/money/land as the real gates, satisfied gates must
+      // convert to visible action — a stingier roll just recreates the invisible RNG throttle
+      // this overhaul exists to remove.
+      l0Div:140, lvlDiv:165,
+      fullnessDevWeight:0.5,   // demand decelerates as OWNED land fills; annexing reopens the tap
+      jobsFloor:0.30,
+      congestion:0.72,         // level>=3 starts blocked when the nearest road is this congested
+      pioneers:6,              // first N residential starts bypass the dice: minutes 1-3 always build
+      samples:30
+    },
+    milestoneRewards: [500, 1000, 2000, 4000, 8000, 15000, 30000],  // §424k -> §60.5k
+    /* PHASE 2 — permission becomes the second scarce resource. Friction shapes WHERE and
+       WHEN you build, never WHETHER: every block has at least one "yes, if...". */
+    politics: {
+      enabled:true,
+      eraPop:[0, 600, 1500, 3500, 7500],   // 0 asleep · 1 factions+PC · 2 council+ED · 3 protests · 4 everywhere
+      pcBase:12, pcPerEra:4,
+      pcCost:{ed:5, whip:3, negotiate:3, campaign:2},
+      fmvBase:60, fmvPer:340,
+      tenureMonths:24,                     // a home this old becomes somebody's, not just yours
+      tiers:[1, 2, 3.5],                   // FMV · generous · whatever-it-takes
+      holdout:0.71,                        // attach above this = money cannot buy it
+      attach:{base:0.15, perYear:0.03, homestead:0.45, edu:0.2, rng:0.3, lowLvPenalty:0.1},
+      refusalStep:0.35, prideStep:0.05, softenStep:0.03, heirChance:0.06,
+      // Seeded in a RING just outside the founding block, so the first expansion actually
+      // meets one. Scattered to the far corners they'd never be found, and the signature
+      // moment would be something most players never see.
+      homesteads:[6,10], homesteadRing:[3,18],
+      route:{tile:20, turn:8},             // turn penalty makes a legible dogleg, not an A* staircase
+      landmark:{minLevel:2, minAgeMonths:120, minLv:0.5, chance:0.04, perEra:0.02, capBase:3, capPerEra:2, demolishCost:5000},
+      ed:{baseRoad:0.8, basePrivate:0.45, months:3, loseCost:1500, payMul:1.5},
+      wild:{voteAt:25, ballotAt:60},
+      petition:{fuseMonths:2, nearHomes:5},
+      protest:{max:3, months:3},
+      graft:{base:0.4, perEra:0.6},
+      /* The full 24-number stance table, written out BEFORE coding so no stance is ever
+         invented inline. Rows: docket item type. Columns: faction lean, -2..+2. */
+      stance:{
+        ed:        {growth: 1.0, neighbors:-1.5, greens:-0.3, labor: 0.5},
+        demolish:  {growth: 0.8, neighbors:-1.8, greens:-0.6, labor: 0.2},
+        upzone:    {growth: 1.2, neighbors:-1.2, greens:-0.4, labor: 0.3},
+        wild:      {growth: 1.0, neighbors:-0.2, greens:-2.0, labor: 0.4},
+        nuclear:   {growth: 0.6, neighbors:-1.0, greens: 0.3, labor: 1.0},
+        landmark:  {growth:-0.8, neighbors: 1.5, greens: 0.6, labor: 0.0}
+      }
+    }
+  }
+};
+const CFG = { mode:'campaign' };
+/* Copies EVERY section of the preset, so adding a section above needs no change here.
+   Deep-copied so runtime tuning never mutates the preset itself. */
+function applyPreset(m){
+  const p=CFG_PRESETS[m];
+  for(const k of Object.keys(p)) CFG[k]=JSON.parse(JSON.stringify(p[k]));
+  CFG.mode=m;
+}
+applyPreset('campaign');   // must run before the S literal below, which reads CFG.election
+function setMode(m){
+  applyPreset((m==='classic') ? 'classic' : 'campaign');
+  S.mode=CFG.mode;
+}
 
 /* ============================== UTILS ============================== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -568,8 +814,9 @@ const S = {
   devLean: 0,        // mayoral record: -100 conservation .. +100 growth
   pop: 0, capR:0, capC:0, capI:0, capF:0, capO:0, occC:0, occI:0, eduPop:0,
   dem: {res:18, com:6, ind:14, farm:11, office:5},
-  month: 0, year: 2000,
-  term: 1, nextElectionYear: 2004, electionsWon: 0, votedOut: false, peakPop: 0,   // re-election cycle
+  month: 0, year: START_YEAR,
+  mode: 'campaign',   // 'classic' | 'campaign' — see CFG_PRESETS
+  term: 1, nextElectionYear: START_YEAR + CFG.election.termYears, electionsWon: 0, votedOut: false, peakPop: 0,   // re-election cycle
   strikes: 0, redMonths: 0, failed: 0, tutDone: 0,
   speedMul: 1, lastSpeed: 1,
   cityName: '',
@@ -585,6 +832,25 @@ const S = {
   eduAvg: 0,
   polAvg: 0, crimeAvg: 0, trafAvg: 0, approval: 55,
   fin: null,                                  // last month's budget report
+  /* --- Phase 1: the earned metropolis --- */
+  owned: null,        // Uint8Array(TRACTS) — 1 = city land. Written ONLY via annexTracts().
+  pool: {res:12},     // families waiting to move in. Residential only; business keeps demand gating.
+  mat: 40,            // construction materials in stock
+  bonds: {principal:0},
+  econ: 1, econDrift: 0,
+  marketing: 0,       // months left on a regional marketing campaign
+  sites: 0,           // tiles currently under construction
+  adv: null,          // last month's growth advisor tally
+  /* --- Phase 2: the map fights back --- */
+  pol: {
+    pc: 3,
+    fav: {growth:10, neighbors:0, greens:0, labor:0},
+    council: [],       // 5 seats, one per district, reseated at elections
+    upzoned: {},       // district -> ordinance passed
+    docket: [], court: [], petitions: [], protests: [],
+    edTaken: 0, graft: 0, scandal: 0, greenbelt: false,
+    recallPending: false, nominee: -1, nomFuse: 0
+  },
 };
 let grid = [];           // cell objects
 let grassShade = null;   // Float32Array
@@ -597,7 +863,113 @@ let mapsDirty=false;
 const constructionAnims = [];
 let started = false;
 
-function makeCell(){return {terrain:'grass', tree:false, treeMesh:null, type:'empty', level:0, occ:0, occ2:0, dens:null, powered:false, netOn:false, access:false, mesh:null, anchor:null, emitLocal:null, vSeed:0, burn:0, flame:null, circle:false, circleMesh:null, preType:null, preDens:null}}
+function makeCell(){return {terrain:'grass', tree:false, treeMesh:null, type:'empty', level:0, occ:0, occ2:0, dens:null, powered:false, netOn:false, access:false, mesh:null, anchor:null, emitLocal:null, vSeed:0, burn:0, flame:null, circle:false, circleMesh:null, preType:null, preDens:null, stage:null, buildL:0, buildT:0}}
+
+/* ============================== TRACTS (land ownership) ==============================
+   The map is divided into 4x4-tile tracts. The city starts owning a small block near
+   centre; everything else is county land — roads may CROSS it (roads lead to the frontier)
+   but nothing may be built on it until it is annexed.
+
+   This is the seam to Phase 2: annexTracts() is the ONLY writer of S.owned, so politics can
+   wrap it with who-will-sell and at-what-price without the economy knowing anything about it. */
+const TRACT = 4;
+const TROW = N / TRACT | 0;              // 68/4 = 17
+const TRACTS = TROW * TROW;              // 289
+function tractOf(i){ const x=i%N, z=(i-x)/N; return ((z/TRACT)|0)*TROW + ((x/TRACT)|0); }
+function tractAt(x,z){ return ((z/TRACT)|0)*TROW + ((x/TRACT)|0); }
+function tractTiles(t){
+  const tx=(t%TROW)*TRACT, tz=((t/TROW)|0)*TRACT, out=[];
+  for(let dz=0;dz<TRACT;dz++)for(let dx=0;dx<TRACT;dx++) out.push({x:tx+dx, z:tz+dz});
+  return out;
+}
+function ownsTile(x,z){ return !CFG.land.enabled || !S.owned || S.owned[tractAt(x,z)]===1; }
+function ownsIdx(i){ return !CFG.land.enabled || !S.owned || S.owned[tractOf(i)]===1; }
+
+/* Price is economy-owned. Phase 2 multiplies it via POLITICS.sellerMul but never replaces it. */
+function cityScale(){ const L=CFG.land; return Math.min(L.scaleCap, 1 + (S.pop||0)/L.scaleDiv); }
+function tractPrice(t){
+  const L=CFG.land; let sum=0;
+  for(const p of tractTiles(t)){
+    const c=grid[idx(p.x,p.z)];
+    sum += c.terrain==='water' ? L.water : (L.baseTile + (lvMap?lvMap[idx(p.x,p.z)]:0.35)*L.lvPer);
+  }
+  return Math.max(1, Math.round(sum * cityScale() * (S.econ||1) * POLITICS.sellerMul(t)));
+}
+/* Phase 2 replaces these two stubs. Shipping them neutral keeps Phase 1 standalone. */
+const POLITICS = {
+  sellerMul: function(){ return 1; },
+  canAnnex:  function(){ return {ok:true}; }
+};
+function annexTracts(list){                       // the ONE writer of S.owned
+  const fresh=list.filter(t=>S.owned[t]!==1);
+  if(!fresh.length) return false;
+  for(const t of fresh){
+    const gate=POLITICS.canAnnex(t);
+    if(!gate.ok){ sErr(); toast(gate.why||'That land is not for sale','bad'); return false; }
+  }
+  const price=fresh.reduce((a,t)=>a+tractPrice(t),0);
+  if(!tryCharge(price)) return false;
+  for(const t of fresh){
+    S.owned[t]=1;
+    // Redraw a one-tile ring too: the city-limit edge lives on the NEIGHBOURS of the
+    // tiles that changed hands, so repainting only the tract leaves a stale border.
+    for(const p of tractTiles(t))
+      for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++)
+        if(inB(p.x+dx,p.z+dz)) redrawTile(p.x+dx,p.z+dz);
+  }
+  mapsDirty=true; recalcStats(); recalcDemand();
+  sPlace();
+  toast('📜 Annexed '+fresh.length+' tract'+(fresh.length>1?'s':'')+' — '+fm(price),'good');
+  return true;
+}
+/* Old family plots, seeded at map-gen and deterministic from the seed. These are the tiles
+   that produce the first road-that-bends: they skew hard toward holdout, so money often
+   cannot move them. Scarcity is what keeps a signature moment signature. */
+function seedHomesteads(){
+  if(!politicsOn()) return;
+  const P=CFG.politics;
+  const rng=mulberry32((S.seed+555)>>>0);
+  const n=P.homesteads[0]+Math.floor(rng()*(P.homesteads[1]-P.homesteads[0]+1));
+  const half=(CFG.land.founding*TRACT)/2;              // edge of the founding block
+  const lo=half+P.homesteadRing[0], hi=half+P.homesteadRing[1];
+  let placed=0, guard=0;
+  while(placed<n && guard++<900){
+    const x=2+Math.floor(rng()*(N-4)), z=2+Math.floor(rng()*(N-4));
+    const d=Math.hypot(x-N/2, z-N/2);
+    if(d<lo || d>hi) continue;                          // the ring: close enough to be found
+    const i=idx(x,z), c=grid[i];
+    if(c.terrain!=='grass' || c.type!=='empty') continue;
+    clearTree(c);
+    c.type='res'; c.dens='low'; c.level=1; c.occ=2;
+    c.age=P.tenureMonths + Math.floor(rng()*320);          // decades old before you arrived
+    setTileBuilding(x,z,buildFor('res',1,x,z,'low'),{noAnim:true});
+    redrawTile(x,z);
+    const lot=makeLot(i,'homestead');
+    // Deliberately COLD. Most homesteads sell at the top rung — money is a real exit. Only
+    // ~1 in 4 lands above the holdout line, so a village-era road meets at most one owner
+    // who cannot be bought. Scarcity is what keeps the signature moment signature.
+    lot.attach=clamp(0.30+rng()*0.55, 0, 1);
+    addMarker(x,z,'picket',false);                      // visible from the start: someone lives here
+    placed++;
+  }
+  markZonedDirty();
+}
+/* Founding tract: the 3x3 block nearest centre with the least water. */
+function seedFoundingTracts(){
+  S.owned=new Uint8Array(TRACTS);
+  if(!CFG.land.enabled){ S.owned.fill(1); return; }
+  const span=CFG.land.founding, mid=(TROW-span)/2;
+  let best=null, bestScore=Infinity;
+  for(let tz=0;tz<=TROW-span;tz++)for(let tx=0;tx<=TROW-span;tx++){
+    let water=0;
+    for(let dz=0;dz<span;dz++)for(let dx=0;dx<span;dx++)
+      for(const p of tractTiles((tz+dz)*TROW+(tx+dx))) if(grid[idx(p.x,p.z)].terrain==='water') water++;
+    const off=Math.hypot(tx-mid, tz-mid);
+    const score=water*3 + off;                    // water hurts most, then distance from centre
+    if(score<bestScore){ bestScore=score; best={tx:tx,tz:tz}; }
+  }
+  for(let dz=0;dz<span;dz++)for(let dx=0;dx<span;dx++) S.owned[(best.tz+dz)*TROW+(best.tx+dx)]=1;
+}
 
 /* ============================== THREE SETUP ============================== */
 const sceneDiv = document.getElementById('scene');
@@ -777,7 +1149,59 @@ function roadMask(x,z){
   if(inB(x-1,z)&&grid[idx(x-1,z)].type==='road') m|=8;
   return m;
 }
+/* drawTile is a thin wrapper so the county-land wash applies to EVERY paint path —
+   drawTileBase has several early returns and appending to it would miss most of them. */
 function drawTile(x,z){
+  drawTileBase(x,z);
+  // Soft contact shadow under anything standing on this lot. Zero geometry, rides the
+  // existing dirty-tile flush, and survives data-view toggles.
+  { const c=grid[idx(x,z)];
+    const solid = c.level>=1 || c.type==='park' || c.type==='preserve' || c.type==='power'
+               || c.type==='police' || c.type==='fire' || c.type==='clinic'
+               || c.type==='elementary' || c.type==='highschool' || c.type==='college';
+    if(solid || c.tree){
+      const px=x*PX, pz=z*PX, r=PX*(solid?0.44:0.22);
+      const g=gCtx.createRadialGradient(px+PX*0.53, pz+PX*0.57, r*0.15, px+PX*0.53, pz+PX*0.57, r);
+      g.addColorStop(0, solid?'rgba(0,0,0,0.24)':'rgba(0,0,0,0.14)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      gCtx.fillStyle=g;
+      gCtx.fillRect(px, pz, PX, PX);
+    } }
+  /* Land tenure has to be readable at a glance from map height. Three cues, in order of
+     importance:
+       1. THE CITY LIMIT — a hard amber edge wherever your land meets the county. This is
+          the line the player actually reads; a wash alone is far too subtle.
+       2. County land — a heavy desaturating wash plus a surveyor's hatch, so it looks
+          like a plat map rather than slightly-dimmer grass.
+       3. Tract grid — the 4x4 parcels you actually buy. */
+  if(CFG.land.enabled && S.owned){
+    const px=x*PX, pz=z*PX;
+    const mine=S.owned[tractAt(x,z)]===1;
+    const ownedAt=(nx,nz)=>inB(nx,nz) && S.owned[tractAt(nx,nz)]===1;
+    if(!mine){
+      gCtx.fillStyle='rgba(88,80,58,.56)';                       // county: clearly not yours
+      gCtx.fillRect(px,pz,PX,PX);
+      gCtx.save();
+      gCtx.beginPath(); gCtx.rect(px,pz,PX,PX); gCtx.clip();
+      gCtx.strokeStyle='rgba(232,214,170,.17)'; gCtx.lineWidth=1;   // surveyor's hatch
+      gCtx.beginPath();
+      for(let o=-PX;o<PX;o+=7){ gCtx.moveTo(px+o,pz); gCtx.lineTo(px+o+PX,pz+PX); }
+      gCtx.stroke();
+      gCtx.restore();
+      gCtx.fillStyle='rgba(236,220,178,.34)';
+      if(x%TRACT===0) gCtx.fillRect(px,pz,1,PX);
+      if(z%TRACT===0) gCtx.fillRect(px,pz,PX,1);
+    } else {
+      const W=3;
+      gCtx.fillStyle='rgba(255,201,92,.92)';
+      if(!ownedAt(x,z-1)) gCtx.fillRect(px, pz, PX, W);
+      if(!ownedAt(x,z+1)) gCtx.fillRect(px, pz+PX-W, PX, W);
+      if(!ownedAt(x-1,z)) gCtx.fillRect(px, pz, W, PX);
+      if(!ownedAt(x+1,z)) gCtx.fillRect(px+PX-W, pz, W, PX);
+    }
+  }
+}
+function drawTileBase(x,z){
   const c = grid[idx(x,z)];
   const px=x*PX, pz=z*PX;
   const rg = rngFor(x,z,S.seed+20);
@@ -1027,7 +1451,11 @@ function buildGeo(parts, useColor){
       if(useColor){
         const _t=Math.max(0,Math.min(1,(pa[i+1]-_py)/Math.max(_ph,0.6)));   // 0 base .. 1 top
         const _up=na[i+1]>0.5;                                              // roofs/tops read brightest
-        const _sh=0.82 + 0.20*_t + (_up?0.06:0);                           // bright, saturated walls top to bottom
+        // Baked ground-contact AO: walls darken toward the ground line, so the mass sits IN
+        // the world instead of on top of it. This plus the contact ellipse in drawTile is the
+        // single most "toy photograph" move available.
+        const _ao=1-0.30*Math.exp(-Math.max(0,pa[i+1])/0.55);
+        const _sh=(0.82 + 0.20*_t + (_up?0.06:0))*_ao;                     // bright, saturated walls top to bottom
         // glass panes get a lifted, cooler read so they pop as windows against matte walls
         if(_isGlass){ col.push(Math.min(1,C.r*_sh*1.12+0.06), Math.min(1,C.g*_sh*1.14+0.08), Math.min(1,C.b*_sh*1.16+0.12)); }
         else { col.push(C.r*_sh, C.g*_sh, C.b*_sh); }
@@ -1632,14 +2060,14 @@ function clearMesh(c){
   if(c.mesh){ scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh=null; }
   if(c.windRotors){ for(const r of c.windRotors){ scene.remove(r); if(r.geometry)r.geometry.dispose(); const wi=windRotors.indexOf(r); if(wi>=0) windRotors.splice(wi,1); } c.windRotors=null; }
   c.emitLocal=null;
-  lightsDirty=true;
+  lightsDirty=true; if(typeof glowDirty!=='undefined') glowDirty=true;
 }
 function setTileBuilding(x, z, built, opts){
   opts=opts||{};
   const c=grid[idx(x,z)];
   clearMesh(c);
   const geo=buildGeo(built.parts);
-  const mesh=new THREE.Mesh(geo, buildingMat);
+  const mesh=new THREE.Mesh(geo, opts.mat||buildingMat);   // opts.mat: grey scaffold during construction
   mesh.castShadow=true;
   mesh.visible=!S.view;                            // stay hidden if a data view is currently active
   mesh.position.set(opts.wx!==undefined?opts.wx:tileCX(x), 0, opts.wz!==undefined?opts.wz:tileCZ(z));
@@ -2245,8 +2673,10 @@ function recalcDemand(){
   const gapPull=-(S.leanGap||0)*0.10;                  // a mayor out of step with the public stalls move-ins
   // fullness: how little buildable room remains. When the map is full, demand can't keep screaming "build".
   let _open=0,_dev=0;
-  for(let _i=0;_i<N*N;_i++){ const _c=grid[_i]; if(_c.type==='empty'){ if(_c.access) _open++; } else if(isDev(_c)) _dev++; }
-  const _fullness=clamp(1 - _open/Math.max(_open+_dev*0.12, 1), 0, 1);   // ~0 early, ->1 as roads-served land fills
+  // Only OWNED, accessible land counts as headroom — county fringe the player cannot build
+  // on must not inflate demand. Annexing visibly reopens the tap.
+  for(let _i=0;_i<N*N;_i++){ const _c=grid[_i]; if(_c.type==='empty'){ if(_c.access && ownsIdx(_i)) _open++; } else if(isDev(_c)) _dev++; }
+  const _fullness=clamp(1 - _open/Math.max(_open+_dev*CFG.growth.fullnessDevWeight, 1), 0, 1);   // ~0 early, ->1 as owned land fills
   const _demDamp=1 - _fullness*0.92;                                     // a full city's demand sinks toward calm
   S._fullness=_fullness;
   S.dem.res=clamp((18+(jobsCap*1.15-S.pop)*0.16 + taxAdj - S.polAvg*30 - S.crimeAvg*18 + greenPull + gapPull)*_demDamp, -100, 100);
@@ -2265,7 +2695,9 @@ function recalcMood(){
   let openLand=0, lowUp=0, harsh=0, devCount=0;
   for(let z=0;z<N;z++)for(let x=0;x<N;x++){
     const i=idx(x,z), c=grid[i];
-    if(c.type==='empty'){ if(c.access && c.terrain!=='water') openLand++; continue; }
+    // Same ownership filter as recalcDemand: patching only one lets county land drag
+    // approval for ground the mayor is not allowed to build on.
+    if(c.type==='empty'){ if(c.access && c.terrain!=='water' && ownsIdx(i)) openLand++; continue; }
     if((c.type==='res'||c.type==='com'||c.type==='office') && c.level>=1){
       devCount++;
       const lv=lvMap?lvMap[i]:0.5;
@@ -2294,7 +2726,7 @@ function recalcMood(){
   const eduFrac=clamp((S.eduPop||0)/_pop, 0, 1);
   S.restPress=clamp((harsh/((devCount||0)*0.25 + 5)) * (0.45 + 1.2*eduFrac), 0, 1);                           // settled, schooled cities guard their character
   S.popLean=Math.round(clamp((S.growPress - S.restPress)*100, -100, 100));   // + want growth, - want restraint
-  S.recordLean=0;                                                            // mismatch is baked into the pressures now
+  S.recordLean=Math.round(S.devLean||0);      // un-stubbed: your record on the tree/crane meter finally means something
   S.leanGap=Math.round(clamp((S.growPress + S.restPress)*100, 0, 100));      // total grievance -> drags approval
   S._openLand=openLand; S._lowUp=lowUp; S._harsh=harsh;
 }
@@ -2480,25 +2912,704 @@ function parkNear(x,z){
   return false;
 }
 
-function develop(x,z,l){
+/* The mutation half of develop(), with no recalcs. Batched completion runs this for every
+   finished site and then recalcs ONCE — per-completion full recalcs would fire dozens of
+   O(N^2) scans per second at turbo. */
+function applyDevelop(x,z,l,settle){
   const c=grid[idx(x,z)];
   c.level=l;
   c.occ=Math.max(c.occ, capOf(c,l)*0.15);
   if(c.type==='mix') c.occ2=Math.max(c.occ2, jobCapOf(c,l)*0.15);
-  setTileBuilding(x,z,buildFor(c.type,l,x,z,c.dens));
+  setTileBuilding(x,z,buildFor(c.type,l,x,z,c.dens), settle?{noAnim:true}:undefined);
+  if(settle && c.mesh){                       // the completion beat: a squash-settle, not a pop
+    c.mesh.scale.set(1,1.06,1);
+    constructionAnims.push({mesh:c.mesh, s:0, settle:true, dur:0.30});
+    if(typeof sSettle==='function') sSettle(x,z);
+  }
   redrawTile(x,z);
   powerDirty=true; mapsDirty=true;
+}
+function develop(x,z,l){
+  applyDevelop(x,z,l);
   recalcStats(); recalcDemand(); updateTop();
   sGrow();
 }
 
 function demandFor(c){ return c.type==='mix' ? (S.dem.res+S.dem.com)/2 : S.dem[c.type]; }
 
-function growthTick(){
-  for(let k=0;k<30;k++){
-    const i=Math.floor(Math.random()*N*N);
+/* ============================== PHASE 1: THE EARNED METROPOLIS ==============================
+   Four legible scarcities and deliberately not more: land (tracts, above), people (the
+   migration pool), money (fees, bonds, the credit freeze) and traffic (congestion gates
+   towers). Every refusal is attributable — the growth advisor names which gate bound. */
+
+const scaffoldMat = new THREE.MeshLambertMaterial({color:0x8d8f8a, flatShading:true});
+
+/* Advisor tally. Per-tile chips are forensics; this is the diagnosis. */
+let GATE={starts:0, pool:0, funds:0, mat:0, traffic:0, grid:0, credit:0};
+function gate(k){ GATE[k]=(GATE[k]||0)+1; }
+function resetGates(){ GATE={starts:0, pool:0, funds:0, mat:0, traffic:0, grid:0, credit:0}; }
+
+/* Sampling from the list of zoned tiles instead of the whole 4,624-tile grid means that at
+   ~20 zoned tiles every ready lot is examined most ticks — so the POOL binds, not an
+   invisible RNG lottery. Stale entries are harmless: growthTick re-checks type anyway. */
+let zonedList=null, zonedDirty=true;
+const ZONE_T={res:1,com:1,ind:1,mix:1,farm:1,office:1};
+function markZonedDirty(){ zonedDirty=true; }
+function eligibleList(){
+  if(zonedDirty || !zonedList){
+    zonedList=[];
+    for(let i=0;i<N*N;i++) if(ZONE_T[grid[i].type]) zonedList.push(i);
+    zonedDirty=false;
+  }
+  return zonedList;
+}
+
+function creditFrozen(){ return CFG.bonds.enabled && (S.redMonths||0)>=CFG.bonds.freezeRedMonths; }
+function poolNeed(c,l){
+  if(!CFG.pool.enabled) return 0;
+  if(c.type!=='res' && c.type!=='mix') return 0;                 // residential only — no business pool
+  return Math.max(0, Math.ceil((capOf(c,l)-capOf(c,c.level))*CFG.pool.startFrac));
+}
+function matNeed(c,l){
+  if(!CFG.materials.enabled) return 0;
+  return Math.max(0, Math.ceil((capOf(c,l)-capOf(c,c.level))*CFG.materials.perCapNeed));
+}
+/* trafMap holds RAW load and only on road tiles — testing the building's own index would
+   always pass. Find the nearest road and normalise, matching how the map view reads it. */
+function nearestRoadTraf(x,z){
+  if(!trafMap) return 0;
+  let best=-1, bd=99;
+  for(let dz=-3;dz<=3;dz++)for(let dx=-3;dx<=3;dx++){
+    const nx=x+dx, nz=z+dz;
+    if(!inB(nx,nz) || grid[idx(nx,nz)].type!=='road') continue;
+    const d=Math.abs(dx)+Math.abs(dz);
+    if(d<bd){ bd=d; best=idx(nx,nz); }
+  }
+  return best<0 ? 0 : trafMap[best]/60;
+}
+
+function startConstruction(x,z,l){
+  const c=grid[idx(x,z)];
+  if(creditFrozen()){ gate('credit'); return false; }
+  const pn=poolNeed(c,l);
+  if(pn>0 && (S.pool.res||0)<pn){ gate('pool'); return false; }
+  const mn=matNeed(c,l);
+  let importCost=0, fromStock=0;
+  if(mn>0){
+    fromStock=Math.min(S.mat||0, mn);
+    const short=mn-fromStock;
+    if(short>0){
+      importCost=Math.round(short*CFG.materials.importPrice*clamp(S.econ||1,0.9,1.3));
+      if(S.money<importCost){ gate('mat'); return false; }      // hard-block only when the treasury can't cover it
+    }
+  }
+  if(pn>0) S.pool.res-=pn;
+  if(mn>0){
+    S.mat=(S.mat||0)-fromStock;
+    if(importCost>0){ S.money-=importCost; S._impSpend=(S._impSpend||0)+importCost; S._impUnits=(S._impUnits||0)+(mn-fromStock); }
+    S._matLocal=(S._matLocal||0)+fromStock;
+  }
+  GATE.starts++;
+  const months = !CFG.construction.enabled ? 0
+               : (c.type==='farm' ? CFG.construction.farmMonths : (CFG.construction.months[l]||2));
+  if(months<=0){ applyDevelop(x,z,l); recalcStats(); recalcDemand(); sGrow(); return true; }
+  c.stage='uc'; c.buildL=l; c.buildT=months;
+  S.sites=(S.sites||0)+1;
+  // Only L0 sites show a scaffold. A level-up keeps its working building (and its income,
+  // occupancy and power draw) and pops the taller mesh at completion.
+  if(c.level===0){
+    setTileBuilding(x,z,buildFor(c.type,l,x,z,c.dens),{mat:scaffoldMat});
+    if(c.mesh){ c.mesh.scale.y=0.35; }
+  }
+  if(typeof roadPoof==='function') roadPoof(x,z);
+  return true;
+}
+function completeConstruction(x,z){
+  const c=grid[idx(x,z)];
+  const l=c.buildL||1;
+  c.stage=null; c.buildL=0; c.buildT=0;
+  S.sites=Math.max(0,(S.sites||0)-1);
+  applyDevelop(x,z,l,true);
+}
+/* Batched: tick every site, mutate the finished ones, THEN recalc once. */
+function constructionMonthly(){
+  if(!CFG.construction.enabled) return;
+  let done=0, held=0;
+  for(let i=0;i<N*N;i++){
     const c=grid[i];
-    if(!(c.type==='res'||c.type==='com'||c.type==='ind'||c.type==='mix'||c.type==='farm'||c.type==='office')) continue;
+    if(c.stage!=='uc') continue;
+    const x=i%N, z=(i-x)/N;
+    const isFarm=c.type==='farm';
+    const acc=isFarm?c.farmAccess:c.access;
+    if(!acc || (!isFarm && !c.netOn)) continue;                 // a stalled site just pauses; the chip explains
+    if(c.buildT>0) c.buildT--;
+    if(c.buildT>0){
+      // Floor-quantised rise: the scaffold jumps a storey at a time, so growth reads as
+      // WORK rather than a mesh being stretched.
+      if(c.mesh && c.level===0){
+        const total=Math.max(1, (c.type==='farm'?CFG.construction.farmMonths:(CFG.construction.months[c.buildL]||2)));
+        const prog=1-(c.buildT/total);
+        const floors=Math.max(1,Math.round(total));
+        c.mesh.scale.y=0.35 + 0.6*(Math.round(prog*floors)/floors);
+      }
+      continue;
+    }
+    if(!isFarm && S.netLoad+(consAt(c,c.buildL)-consAt(c,c.level))>S.netCap){ held++; continue; }   // don't complete into a brownout
+    completeConstruction(x,z); done++;
+  }
+  if(done){ recalcStats(); recalcDemand(); if(typeof sGrow==='function') sGrow(); }
+  if(held && !S.hinted.gridfull){ S.hinted.gridfull=1; toast('Buildings are finished but the grid is full — add capacity','bad'); }
+}
+
+/* The migration pool: growth becomes a rate the player engineers rather than an RNG faucet. */
+function attractScore(){
+  const jobs=(S.capC||0)+(S.capI||0)+(S.capF||0)+(S.capO||0);
+  const jobsSignal=clamp((jobs-(S.pop||0)*0.6)/Math.max((S.pop||0)*0.5,25), -0.6, 0.6);
+  return {
+    jobs: 0.5*jobsSignal,
+    taxes: 0.06*(7-(S.tax||0)),
+    green: 0.6*((S.green||0)-0.45),
+    pollution: -(S.polAvg||0)*1.0,
+    crime: -(S.crimeAvg||0)*0.8,
+    base: 0.3
+  };
+}
+function attractTotal(){
+  const p=attractScore();
+  let v=p.base+p.jobs+p.taxes+p.green+p.pollution+p.crime;
+  v=clamp(v,0.05,1.5)*(S.econ||1);
+  if((S.marketing||0)>0) v*=(1+CFG.pool.marketingBoost);
+  return v;
+}
+function poolMonthly(){
+  if(!CFG.pool.enabled) return;
+  const P=CFG.pool;
+  const inflow=Math.max(P.floor, (P.growBase + (S.pop||0)*P.growPer) * attractTotal());
+  S.pool.res=(S.pool.res||0)+inflow;
+  const before=S.pool.res;
+  S.pool.res*=P.decay;
+  // Impatience is never a silent leak — it surfaces as a headline once it's worth noticing.
+  S._lost=(S._lost||0)+(before-S.pool.res);
+  if(S._lost>=3){
+    const n=Math.floor(S._lost); S._lost-=n;
+    if(typeof pushTicker==='function') pushTicker(n+' families gave up waiting — no homes ready');
+  }
+  if((S.marketing||0)>0) S.marketing--;
+}
+function econMonthly(){
+  if(!CFG.econ.enabled){ S.econ=1; return; }
+  const E=CFG.econ;
+  const months=(S.year-START_YEAR)*12+S.month;
+  S.econDrift=clamp((S.econDrift||0)+(Math.random()*2-1)*E.driftStep, -E.driftCap, E.driftCap);
+  let v=1 + E.amp*Math.sin(2*Math.PI*(months+(S.seed%E.period))/E.period) + S.econDrift;
+  v=clamp(v,E.lo,E.hi);
+  if((S.pop||0)<E.gracePop) v=Math.max(v,0.95);                 // no recession before the city can answer one
+  const was=S._econBand||'steady';
+  const band = v<0.88 ? 'slump' : (v>1.12 ? 'boom' : 'steady');
+  S.econ=v; S._econBand=band;
+  if(band!==was && started){
+    if(band==='slump') toast('📉 Regional recession — migration slows, but land is cheap','bad');
+    else if(band==='boom') toast('📈 Boom years — the region is moving in','good');
+  }
+}
+function bondRating(){
+  const B=CFG.bonds;
+  const interest=(S.bonds.principal||0)*B.rateA;
+  const inc=Math.max(200, S.fin ? S.fin.income : 200);          // income is null at founding
+  const r=interest/inc;
+  return r<B.ratioA ? 'A' : (r<B.ratioB ? 'B' : 'C');
+}
+function bondCeiling(){
+  const B=CFG.bonds;
+  if(!B.enabled) return 0;
+  let cap=B.baseCap, k=0;
+  for(const m of MILESTONES){ if(S.milestonesHit[m.pop]) cap=B.caps[k]||cap; k++; }
+  return cap;
+}
+function bondInterest(){
+  const B=CFG.bonds;
+  if(!B.enabled || !(S.bonds.principal>0)) return 0;
+  const rate = bondRating()==='A' ? B.rateA : (bondRating()==='B' ? B.rateB : B.rateC);
+  return Math.round(S.bonds.principal*rate);
+}
+function issueBond(){
+  const B=CFG.bonds;
+  if(!B.enabled) return;
+  if(bondRating()==='C'){ sErr(); toast('Rating C — lenders won’t underwrite new debt','bad'); return; }
+  if((S.bonds.principal||0)+B.block > bondCeiling()){ sErr(); toast('That would breach the city’s bond ceiling of '+fm(bondCeiling()),'bad'); return; }
+  S.bonds.principal=(S.bonds.principal||0)+B.block;
+  S.money+=B.block;
+  sCash(); toast('🏦 Issued '+fm(B.block)+' of bonds · principal '+fm(S.bonds.principal),'good');
+  if(typeof openBudget==='function' && $('budgetBody')) openBudget();
+}
+function repayBond(){
+  const B=CFG.bonds;
+  if(!(S.bonds.principal>0)) return;
+  const amt=Math.min(B.block, S.bonds.principal);
+  if(!tryCharge(amt)) return;
+  S.bonds.principal-=amt;
+  toast('Repaid '+fm(amt)+' · principal '+fm(S.bonds.principal),'good');
+  if(typeof openBudget==='function' && $('budgetBody')) openBudget();
+}
+function phase1Monthly(){
+  constructionMonthly();
+  econMonthly();
+  poolMonthly();
+  if(CFG.materials.enabled) S.mat=(S.mat||0)+(S.occI||0)*CFG.materials.perOccI;
+  markZonedDirty();
+  // Escalating credit warnings: the freeze must never be the first the player hears of trouble.
+  const fz=CFG.bonds.freezeRedMonths;
+  if(CFG.bonds.enabled && fz<50){
+    if(S.redMonths===2 && typeof pushTicker==='function') pushTicker('Lenders are watching — two months in the red');
+    if(S.redMonths===fz-1 && started) toast('⚠️ One more month in the red and credit freezes — no new construction','bad');
+    if(S.redMonths===fz && started) toast('🏦 Credit freeze — lenders won’t touch a city '+fz+' months in the red','bad');
+  }
+  // The growth advisor: one line naming the binding gate.
+  S.adv={starts:GATE.starts, pool:GATE.pool, funds:GATE.funds, mat:GATE.mat, traffic:GATE.traffic, grid:GATE.grid, credit:GATE.credit};
+  resetGates();
+}
+/* ============================== PHASE 2: THE MAP FIGHTS BACK ==============================
+   Land has owners with names. Your own early buildings age into constituencies that resist
+   you. A five-seat council elected from the city you actually built must bless your biggest
+   moves. Every large action has three exits — pay dearly, fight for months, or build around —
+   and each leaves a different permanent mark on the map.
+
+   Terminology, kept deliberately distinct in code:
+     TRACT (Phase 1) = a 4x4 annexation block, S.owned.
+     LOT   (Phase 2) = one tile of private ownership, lots{}.
+   Annexing a tract does NOT buy the private lots inside it. */
+
+let lots = {};                       // idx -> Lot. Sparse: only tiles where ownership matters.
+const LOT_KIND=['homestead','tenure','trust','landmark'];
+const FACTIONS=['growth','neighbors','greens','labor'];
+const FACTION_NM={growth:'Growth', neighbors:'Neighbours', greens:'Greens', labor:'Labour'};
+
+const FIRST_NM=['Ada','Merced','Otto','Ines','Cal','Rosa','Hollis','Junie','Amos','Delia',
+                'Rafe','Nell','Emmet','Sable','Odette','Bram','Lucia','Ward','Mira','Cyrus'];
+const LAST_NM =['Merced','Alder','Vance','Okafor','Brill','Santos','Kestrel','Hallow','Dray','Ferris',
+                'Quill','Marsh','Ostrander','Bell','Cardoza','Wren','Pike','Halloran','Nye','Solberg'];
+function ownerName(seed){
+  const a=mulberry32(seed>>>0)(), b=mulberry32((seed*7919)>>>0)();
+  return FIRST_NM[Math.floor(a*FIRST_NM.length)]+' '+LAST_NM[Math.floor(b*LAST_NM.length)];
+}
+
+function politicsOn(){ return CFG.politics.enabled; }
+function era(){
+  if(!politicsOn()) return 0;
+  const P=CFG.politics; let e=0;
+  for(let k=1;k<P.eraPop.length;k++) if((S.pop||0)>=P.eraPop[k]) e=k;
+  return e;                                        // derived from population, never saved
+}
+function pcCap(){ const P=CFG.politics; return P.pcBase + P.pcPerEra*era(); }
+function pcHave(n){ return (S.pol.pc||0)>=n; }
+function pcSpend(n){ if(!pcHave(n)) return false; S.pol.pc-=n; updateTop(); return true; }
+
+/* Favor moves in chunky, attributable steps — anything worth -2/month forever becomes one
+   -8 with a headline, or the player can't tell what moved the bar. */
+function addFav(f, d, why){
+  if(!politicsOn() || !S.pol) return;
+  S.pol.fav[f]=clamp((S.pol.fav[f]||0)+d, -100, 100);
+  if(why && Math.abs(d)>=4) pushTicker(FACTION_NM[f]+(d>0?' welcome ':' resent ')+why);
+}
+
+function landFMV(i){ const P=CFG.politics; return Math.round(P.fmvBase + P.fmvPer*(lvMap?lvMap[i]:0.35)); }
+
+function rollAttach(i, kind, rng){
+  const P=CFG.politics, A=P.attach;
+  const c=grid[i];
+  const years=(c.age||0)/12;
+  const eduFrac=clamp(S.eduAvg||0,0,1);
+  let v = A.base + years*A.perYear + (kind==='homestead'?A.homestead:0)
+        + A.edu*eduFrac + rng()*A.rng
+        - ((lvMap?lvMap[i]:0.4)<0.35 ? A.lowLvPenalty : 0);
+  return clamp(v, 0, 1);
+}
+function makeLot(i, kind){
+  const rng=rngFor(i%N, (i/N)|0, S.seed+91);
+  const lot={
+    i:i, kind:kind, nameSeed:(S.seed ^ (i*2654435761)) >>> 0,
+    faction: kind==='trust' ? 'greens' : 'neighbors',
+    attach: kind==='trust' ? 1 : rollAttach(i, kind, rng),
+    refusals:0, since:(S.year-START_YEAR)*12+S.month
+  };
+  lots[i]=lot;
+  return lot;
+}
+function lotName(lot){ return ownerName(lot.nameSeed); }
+/* Lots are created LAZILY — a tile becomes somebody's the first time a player action
+   touches it. Unowned land never enters the map, so it stays under ~200 entries. */
+function ensureLot(i){
+  if(!politicsOn()) return null;
+  if(lots[i]) return lots[i];
+  const c=grid[i];
+  if(era()<1) return null;                                   // era 0: politics asleep, everyone sells
+  if(c.landmark) return makeLot(i,'landmark');
+  if(c.type==='preserve' && c.wild) return makeLot(i,'trust');
+  if(c.type==='res' && c.level>=1 && (c.age||0)>=CFG.politics.tenureMonths) return makeLot(i,'tenure');
+  return null;
+}
+function isHoldout(lot){ return lot && lot.attach>CFG.politics.holdout; }
+function askPrice(lot, tier){
+  const mult=CFG.politics.tiers[tier]||1;
+  return Math.round(landFMV(lot.i)*mult*(1+CFG.politics.refusalStep*(lot.refusals||0)));
+}
+function willSell(lot, tier){
+  if(lot.kind==='trust'||lot.kind==='landmark') return false;
+  const mult=CFG.politics.tiers[tier]||1;
+  return mult >= 1 + 3.5*lot.attach;
+}
+
+/* Hard political blocks: things no amount of money clears this instant. */
+function polBlocked(x,z){
+  if(!politicsOn()) return null;
+  const i=idx(x,z), c=grid[i];
+  if(c.landmark) return 'landmark';
+  if(S.pol.greenbelt && c.type==='preserve' && c.wild) return 'greenbelt';
+  for(const p of S.pol.protests){ if(Math.abs((p.i%N)-x)<=1 && Math.abs(((p.i/N)|0)-z)<=1) return 'protest'; }
+  const lot=lots[i];
+  if(lot && isHoldout(lot)) return 'holdout';
+  return null;
+}
+
+/* THE gateway. Every build action that touches owned land goes through here — including the
+   three plop paths (park, plant, station) that all reach clearForPlop, or a clinic becomes a
+   free holdout-clearance tool. */
+function polAcquire(tiles, purpose, tier){
+  const out={placed:[], blocked:[], landCost:0};
+  if(!politicsOn()){ out.placed=tiles.slice(); return out; }
+  tier = (tier===undefined) ? 0 : tier;
+  for(const t of tiles){
+    const i=idx(t.x,t.z);
+    const hard=polBlocked(t.x,t.z);
+    if(hard){ out.blocked.push({t:t, why:hard, lot:lots[i]||null}); continue; }
+    const lot=ensureLot(i);
+    if(!lot){ out.placed.push(t); continue; }
+    const c=grid[i];
+    if(c.type==='com'||c.type==='ind'||c.type==='office'){    // businesses take the check, no drama
+      out.landCost+=Math.round(landFMV(i)*1.25); out.placed.push(t); continue;
+    }
+    if(willSell(lot, tier)){
+      out.landCost+=askPrice(lot, tier);
+      out.placed.push(t);
+      delete lots[i];
+      if(askPrice(lot,tier)>=landFMV(i)*2) pushTicker('The '+lotName(lot).split(' ')[1]+'s leave the valley after '+Math.max(1,Math.round((grid[i].age||24)/12))+' years');
+      // last-one-standing pride: neighbours dig in as the block sells around them
+      for(let dz=-2;dz<=2;dz++)for(let dx=-2;dx<=2;dx++){
+        const nx=t.x+dx, nz=t.z+dz; if(!inB(nx,nz)) continue;
+        const nl=lots[idx(nx,nz)]; if(nl) nl.attach=clamp(nl.attach+CFG.politics.prideStep,0,1);
+      }
+    } else {
+      lot.refusals++;
+      out.blocked.push({t:t, why:'refused', lot:lot});
+    }
+  }
+  return out;
+}
+
+/* ---------- council & docket ---------- */
+const DISTRICTS=['Core','NW','NE','SW','SE'];
+function distOf(x,z){
+  const cx=N/2, cz=N/2;
+  if(Math.hypot(x-cx,z-cz)<10) return 0;
+  return (z<cz ? (x<cx?1:2) : (x<cx?3:4));
+}
+/* Seats go to whichever faction the district's own fabric favours. Runs at elections only —
+   one reseat rhythm, one code path. */
+function reseatCouncil(){
+  if(!politicsOn()) return;
+  const sc=[]; for(let d=0;d<5;d++) sc.push({growth:0,neighbors:0,greens:0,labor:0});
+  let unpow=0;
+  for(let i=0;i<N*N;i++){
+    const c=grid[i]; if(c.type==='empty') continue;
+    const x=i%N, z=(i-x)/N, d=distOf(x,z), s=sc[d];
+    if(c.type==='res'&&c.level>=1&&(c.age||0)>=CFG.politics.tenureMonths) s.neighbors++;
+    if(c.landmark) s.neighbors+=3;
+    if(c.type==='com'||c.type==='office'||c.dens==='high') s.growth++;
+    if(c.type==='park') s.greens++;
+    if(c.type==='preserve') s.greens+=0.5;
+    if(c.type==='ind'||c.type==='farm') s.labor++;
+    if(c.level>=1&&!c.powered) unpow++;
+  }
+  if((S.growPress||0)>0.5) for(const s of sc) s.growth+=5;
+  if(unpow>5) for(const s of sc) s.labor+=4;
+  const prev=S.pol.council||[];
+  S.pol.council=sc.map((s,d)=>{
+    let bestF='growth', bestV=-1;
+    for(const f of FACTIONS){
+      let v=s[f]*(1+(mulberry32(S.seed+d*31+FACTIONS.indexOf(f))()*0.2-0.1));
+      if(prev[d]&&prev[d].faction===f) v*=1.15;                 // incumbency stickiness
+      if(v>bestV){ bestV=v; bestF=f; }
+    }
+    return {dist:DISTRICTS[d], faction:bestF, name:ownerName(S.seed+d*7717)};
+  });
+}
+function fileDocket(item){
+  item.id=(S.pol._nid=(S.pol._nid||0)+1);
+  item.filed=(S.year-START_YEAR)*12+S.month;
+  item.whip={};
+  S.pol.docket.push(item);
+  toast('📋 On the docket — the council votes at the end of next month','good');
+  pushTicker('City hall files '+docketLabel(item));
+}
+function docketLabel(it){
+  if(it.type==='ed') return 'a condemnation order';
+  if(it.type==='demolish') return 'a landmark demolition';
+  if(it.type==='upzone') return 'an upzoning ordinance for the '+DISTRICTS[it.dist];
+  if(it.type==='wild') return 'a motion to open protected land';
+  if(it.type==='nuclear') return 'a nuclear siting review';
+  return 'a motion';
+}
+function seatVote(seat, it, d){
+  const st=(CFG.politics.stance[it.type]||{})[seat.faction]||0;
+  const favTerm=(S.pol.fav[seat.faction]||0)/40;
+  let local=0;
+  if(d!==undefined && DISTRICTS[d]===seat.dist) local = (it.type==='ed'||it.type==='demolish'||it.type==='upzone') ? -1.0 : 0.8;
+  const whip=(it.whip&&it.whip[seat.dist])?1.2:0;
+  return st + favTerm + local + whip - (S.pol.scandal>0?0.8:0);
+}
+function docketTally(it){
+  const d=(it.x!==undefined)?distOf(it.x,it.z):it.dist;
+  let yes=0, worst=null, worstV=99;
+  for(const seat of S.pol.council){
+    const v=seatVote(seat,it,d);
+    if(v>0) yes++; else if(v<worstV){ worstV=v; worst=seat; }
+  }
+  return {yes:yes, need:(it.type==='demolish'?4:3), worst:worst};
+}
+function resolveDocket(){
+  const keep=[];
+  for(const it of S.pol.docket){
+    const age=((S.year-START_YEAR)*12+S.month)-it.filed;
+    if(age<1){ keep.push(it); continue; }
+    const t=docketTally(it);
+    const passed=t.yes>=t.need;
+    pushTicker('Council '+(passed?'passes':'rejects')+' '+docketLabel(it)+' — '+t.yes+'/5');
+    toast((passed?'✅ ':'❌ ')+'Council '+(passed?'approves':'rejects')+' '+docketLabel(it), passed?'good':'bad');
+    if(passed) applyDocket(it);
+    else if(it.type==='ed'){ addFav('neighbors',4); }
+  }
+  S.pol.docket=keep;
+}
+function applyDocket(it){
+  if(it.type==='ed'){
+    const P=CFG.politics.ed;
+    let p=(it.purpose==='road'?P.baseRoad:P.basePrivate)
+        - 0.15*Math.min(S.pol.edTaken||0,4)*(era()>=3?1:0)
+        - ((S.pol.fav.neighbors||0)<-30?0.1:0);
+    S.pol.court.push({x:it.x, z:it.z, months:P.months, p:clamp(p,0.05,0.95)});
+    pushTicker('The '+ (lots[idx(it.x,it.z)]?lotName(lots[idx(it.x,it.z)]).split(' ')[1]:'condemnation') +' case goes to court');
+  } else if(it.type==='upzone'){ S.pol.upzoned[it.dist]=true; addFav('growth',6); addFav('neighbors',-6); }
+  else if(it.type==='wild'){ S.pol._wildOpen=true; addFav('greens',-8,'the reserve vote'); }
+  else if(it.type==='demolish'){
+    const c=grid[idx(it.x,it.z)]; c.landmark=false; delete lots[idx(it.x,it.z)];
+    removeMarker(it.x,it.z); redrawTile(it.x,it.z);
+    addFav('neighbors',-20,'a landmark demolition');
+  }
+}
+function courtTick(){
+  const keep=[];
+  for(const cs of S.pol.court){
+    cs.months--;
+    if(cs.months>0){ keep.push(cs); pushTicker('Day in court over the '+DISTRICTS[distOf(cs.x,cs.z)]+' condemnation'); continue; }
+    const P=CFG.politics.ed, i=idx(cs.x,cs.z);
+    if(Math.random()<cs.p){
+      const price=Math.round(landFMV(i)*P.payMul);
+      S.money-=price;
+      delete lots[i]; removeMarker(cs.x,cs.z);
+      S.pol.edTaken=(S.pol.edTaken||0)+1;
+      S.devLean=clamp((S.devLean||0)+1.0,-100,100);
+      addFav('neighbors',-12,'a condemnation');
+      toast('⚖️ The court finds for the city — the land is yours for '+fm(price),'good');
+      if((S.pol.fav.neighbors||0)<-20 && Math.random()<0.4) spawnProtest(i,'the condemnation');
+    } else {
+      S.money-=P.loseCost;
+      const c=grid[i]; c.landmark=true;
+      makeLot(i,'landmark');
+      addMarker(cs.x,cs.z,'notice');
+      toast('⚖️ The court finds against the city — the lot is protected for good','bad');
+      pushTicker('A judge grants the homestead protected status — permanently');
+    }
+  }
+  S.pol.court=keep;
+}
+/* ---------- landmarks: your own city fights back ---------- */
+function landmarkTick(){
+  const L=CFG.politics.landmark;
+  if(era()<2) return;
+  if(S.pol.nominee>=0){
+    S.pol.nomFuse--;
+    if(S.pol.nomFuse<=0) endorseLandmark(S.pol.nominee);   // ignoring = endorsing (anti-homework)
+    return;
+  }
+  let total=0; for(let i=0;i<N*N;i++) if(grid[i].landmark) total++;
+  if(total >= L.capBase + L.capPerEra*era()) return;
+  if(!((S.pol.fav.neighbors||0)>0 || (S.restPress||0)>0.4)) return;
+  if(Math.random() >= L.chance + L.perEra*era()) return;
+  const pool=[];
+  for(let i=0;i<N*N;i++){
+    const c=grid[i];
+    if(c.landmark || c.level<L.minLevel || (c.age||0)<L.minAgeMonths) continue;
+    if((lvMap?lvMap[i]:0)<L.minLv) continue;
+    pool.push(i);
+  }
+  if(!pool.length) return;
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  S.pol.nominee=pick; S.pol.nomFuse=2;
+  const x=pick%N, z=(pick/N)|0;
+  addMarker(x,z,'notice');
+  pushTicker('The preservation society nominates a building on the '+DISTRICTS[distOf(x,z)]+' side');
+  openChip({x:x, z:z, title:'Landmark nomination', sub:'Level '+grid[pick].level+' · '+Math.round((grid[pick].age||0)/12)+' years old',
+    body:'The preservation society wants this building protected. Protected buildings block roads and zoning — permanently.',
+    buttons:[
+      {label:'Endorse', primary:true, why:'+6 Neighbours, +4 approval · blocks building here forever', onClick:ctx=>{ endorseLandmark(pick); ctx.close(); }},
+      {label:'Contest it', why:'Put it to the council', onClick:ctx=>{ fileDocket({type:'landmark', x:x, z:z}); S.pol.nominee=-1; removeMarker(x,z); ctx.close(); }}
+    ]});
+}
+function endorseLandmark(i){
+  if(i<0) return;
+  const c=grid[i]; c.landmark=true;
+  makeLot(i,'landmark');
+  const x=i%N, z=(i/N)|0;
+  addMarker(x,z,'notice');
+  addFav('neighbors',6,'a landmark designation');
+  S.approval=Math.min(100,(S.approval||0)+4);
+  S.pol.nominee=-1; S.pol.nomFuse=0;
+  toast('🏛 Landmarked — this building is protected for good','good');
+}
+/* ---------- protests ---------- */
+function spawnProtest(i, cause){
+  if(S.pol.protests.length>=CFG.politics.protest.max) return;
+  S.pol.protests.push({i:i, cause:cause||'the decision', months:CFG.politics.protest.months});
+  const x=i%N, z=(i/N)|0;
+  addMarker(x,z,'picket');
+  toast('📣 A protest camp forms over '+(cause||'the decision'),'bad');
+  pushTicker('Protesters occupy a lot on the '+DISTRICTS[distOf(x,z)]+' side');
+}
+function protestTick(){
+  const keep=[];
+  for(const p of S.pol.protests){
+    p.months--;
+    if(p.months>0){ keep.push(p); continue; }
+    const x=p.i%N, z=(p.i/N)|0;
+    removeMarker(x,z);
+    addFav('neighbors',-2);
+    pushTicker('The camp on the '+DISTRICTS[distOf(x,z)]+' side packs up');
+  }
+  S.pol.protests=keep;
+}
+/* WILD_STEP, live at last: §300, §310, §320… doubled while the Greens are hostile. */
+function wildPrice(){
+  let p=WILD_BASE + WILD_STEP*(S.wildTaken||0);
+  if(politicsOn() && S.pol && (S.pol.fav.greens||0)<-30) p*=2;
+  return Math.round(p);
+}
+/* The Greenbelt ballot: a set-piece whose BOTH outcomes permanently redraw the map. */
+function triggerGreenbelt(){
+  if(!politicsOn() || S.pol._greenbeltDone) return;
+  S.pol._greenbeltDone=true;
+  const yes=clamp(50 + (S.pol.fav.greens||0)*0.35 + (S.pol.fav.neighbors||0)*0.15
+                  - (S.pol.fav.growth||0)*0.2 - ((S.approval||50)-50)*0.25, 0, 100);
+  const passed=yes>=50;
+  if(passed){
+    S.pol.greenbelt=true;
+    for(let i=0;i<N*N;i++){ const c=grid[i]; if(c.type==='preserve'&&c.wild) redrawTile(i%N,(i/N)|0); }
+    toast('🌲 The Greenbelt Initiative passes — every remaining acre of wild land is frozen for good','bad');
+    pushTicker('GREENBELT PASSES: the map closes at '+Math.round(yes)+'% yes');
+  } else {
+    addFav('greens',-25,'the greenbelt defeat');
+    toast('The Greenbelt Initiative fails at '+Math.round(yes)+'% — the land is yours, and so is the opposition','good');
+    pushTicker('GREENBELT DEFEATED — conservationists vow to fight on');
+    for(let i=0;i<N*N;i++){ if(grid[i].type==='preserve'&&grid[i].wild){ spawnProtest(i,'the greenbelt defeat'); break; } }
+  }
+}
+/* ---------- graft & scandal ---------- */
+function addGraft(n){ S.pol.graft=(S.pol.graft||0)+n; }
+function exposureLabel(){ const g=S.pol.graft||0; return g<=0?'low':(g<=2?'rising':'severe'); }
+function scandalTick(){
+  const G=CFG.politics.graft;
+  if(S.pol.scandal>0){
+    S.pol.scandal--;
+    if(S.pol.scandal===0) pushTicker('The scandal finally drops out of the headlines');
+    // second wave, a month after the first — a single simultaneous hit was a death spiral
+    if(S.pol._wave2 && S.pol.scandal>0){ S.pol._wave2=false; S.pol.pc=0; addFav('growth',-20,'the scandal'); }
+    return;
+  }
+  if((S.pol.graft||0)<=0) return;
+  const chance=(S.pol.graft*(G.base+G.perEra*era()))/100;
+  if(Math.random()<chance){
+    S.pol.scandal=12; S.pol._wave2=true;
+    S.pol.graft=0;
+    S.approval=Math.max(0,(S.approval||0)-10);
+    toast('🗞 SCANDAL — the press has the story','bad');
+    pushTicker('WHO PAID FOR THIS? The city hall favours come to light');
+    if(S.pol._careerScandals=(S.pol._careerScandals||0)+1, S.pol._careerScandals>=2){
+      S.pol.recallPending=true;
+      toast('A recall petition succeeds — you face the voters early','bad');
+    }
+  }
+}
+/* ---------- the political month ---------- */
+function polTick(){
+  if(!politicsOn()) return;
+  const P=CFG.politics;
+  if(era()>=1){
+    S.pol.pc=Math.min(pcCap(), (S.pol.pc||0) + 1 + Math.max(0, Math.floor(((S.approval||50)-50)/12)));
+  }
+  resolveDocket();
+  courtTick();
+  landmarkTick();
+  protestTick();
+  scandalTick();
+  // attachment softens where you improved the block, hardens where you fouled it
+  if(S.month===0){
+    for(const k in lots){
+      const lot=lots[k]; if(lot.kind==='trust'||lot.kind==='landmark') continue;
+      const i=+k, x=i%N, z=(i/N)|0;
+      let improved=false;
+      for(let dz=-4;dz<=4&&!improved;dz++)for(let dx=-4;dx<=4;dx++){
+        const nx=x+dx,nz=z+dz; if(!inB(nx,nz)) continue;
+        const t=grid[idx(nx,nz)].type;
+        if(t==='park'||t==='elementary'||t==='highschool'||t==='college'){ improved=true; break; }
+      }
+      if(improved) lot.attach=clamp(lot.attach-P.softenStep,0,1);
+      if((polMap?polMap[i]:0)>0.4) lot.attach=clamp(lot.attach+0.02,0,1);
+      if(isHoldout(lot) && Math.random()<P.heirChance){       // the map heals on its own clock
+        lot.attach=clamp(lot.attach*0.4,0,1); lot.refusals=0;
+        pushTicker(lotName(lot)+' passes away; the heirs are willing to sell');
+        removeMarker(x,z);
+      }
+    }
+  }
+  // faction drift from the live map, in chunky attributable steps
+  if(S.month===0){
+    for(const f of FACTIONS) S.pol.fav[f]=Math.round((S.pol.fav[f]||0)*0.9);   // grudges fade
+    if((S.growPress||0)>0.6) addFav('growth',-4);
+    if((S.restPress||0)>0.5) addFav('neighbors',-3);
+    if((S._jobsFactor||1)>0.85) addFav('labor',4); else if((S._jobsFactor||1)<0.5) addFav('labor',-4);
+    if((S.polAvg||0)>0.35) addFav('greens',-4);
+    if((S.tax||7)>9) addFav('labor',-3);
+  }
+  S.pol.pc=clamp(S.pol.pc||0, 0, pcCap());
+}
+
+function advisorLine(){
+  const a=S.adv;
+  if(!a) return '';
+  const blocks=[[a.pool,'migration'],[a.mat,'materials'],[a.funds,'funds'],[a.traffic,'traffic'],[a.grid,'power'],[a.credit,'credit freeze']]
+    .filter(b=>b[0]>0).sort((x,y)=>y[0]-x[0]);
+  if(!blocks.length) return a.starts ? (a.starts+' started · nothing blocked') : 'No construction started';
+  return a.starts+' started · blocked: '+blocks.slice(0,3).map(b=>b[0]+' by '+b[1]).join(', ');
+}
+
+function growthTick(){
+  const G=CFG.growth;
+  const list=eligibleList();
+  if(!list.length) return;
+  for(let k=0;k<G.samples;k++){
+    const i=list[Math.floor(Math.random()*list.length)];
+    const c=grid[i];
+    if(!ZONE_T[c.type]) continue;                    // list can hold stale entries; cheap re-check
+    if(c.stage==='uc') continue;                     // BEFORE abandonment, or sites decay and L0 tiles start twice
     const x=i%N, z=(i-x)/N;
     const d=demandFor(c);
     const lv=lvMap?lvMap[i]:0.5;
@@ -2509,16 +3620,27 @@ function growthTick(){
     const isFarm=c.type==='farm';
     const acc=isFarm?c.farmAccess:c.access;
     if(c.level>=1){                                  // ABANDONMENT: lots starved of power/access/demand decay and are razed to vacant ground
-      const _cap=capOf(c)||1;
-      const _bad = !acc || (!isFarm && !c.netOn) || d < -32;
-      if(_bad && c.occ < _cap*0.25) c.decay=(c.decay||0)+1; else c.decay=0;
-      if((c.decay||0) > 6 && Math.random()<0.15){ clearMesh(c); c.level=0; c.occ=0; c.occ2=0; c.decay=0; redrawTile(x,z); mapsDirty=true; continue; }
+      // A tile with an OWNER is somebody's home, not speculative development. Homesteads
+      // predate the city's roads and power by decades and must never evaporate on their
+      // own — they are the seed of the entire politics layer, and a razed homestead is a
+      // road-bend that can never happen.
+      if(politicsOn() && lots[i]) c.decay=0;
+      else {
+        const _cap=capOf(c)||1;
+        const _bad = !acc || (!isFarm && !c.netOn) || d < -32;
+        if(_bad && c.occ < _cap*0.25) c.decay=(c.decay||0)+1; else c.decay=0;
+        if((c.decay||0) > 6 && Math.random()<0.15){ clearMesh(c); c.level=0; c.occ=0; c.occ2=0; c.decay=0; redrawTile(x,z); mapsDirty=true; continue; }
+      }
     }
     if(c.level===0){
       if(!acc || (!isFarm && !c.netOn)) continue;
-      if(!isFarm && S.netLoad+consAt(c,1)>S.netCap) continue;
+      if(!isFarm && S.netLoad+consAt(c,1)>S.netCap){ gate('grid'); continue; }
       if(d<=0) continue;
-      if(Math.random()<(d/140)*boost) develop(x,z,1);
+      // Pioneer guarantee: the first few homes skip the dice so minutes 1-3 always build.
+      const pioneer=(c.type==='res'||c.type==='mix') && (S._pioneers||0)<G.pioneers;
+      if(pioneer || Math.random()<(d/G.l0Div)*boost){
+        if(startConstruction(x,z,1) && pioneer) S._pioneers=(S._pioneers||0)+1;
+      }
     } else {
       const hi=(c.dens==='high'||c.type==='mix'||c.type==='office');
       let mx=hi?((lv>=0.5)?4:3):2;               // prime land unlocks the top tier
@@ -2527,8 +3649,10 @@ function growthTick(){
       if(!acc || (!isFarm && !c.powered)) continue;
       if(d<=4) continue;                          // keep climbing while demand is healthy; stop only on oversupply
       if(c.occ < 0.55*capOf(c)) continue;
-      if(!isFarm && S.netLoad+(consAt(c,c.level+1)-consAt(c,c.level))>S.netCap) continue;
-      if(Math.random()<(d/165)*boost) develop(x,z,c.level+1);
+      if(!isFarm && S.netLoad+(consAt(c,c.level+1)-consAt(c,c.level))>S.netCap){ gate('grid'); continue; }
+      // Gridlock gates towers: the fix is road layout and mixed use, not waiting.
+      if(c.level+1>=3 && G.congestion<10 && nearestRoadTraf(x,z)>=G.congestion){ gate('traffic'); continue; }
+      if(Math.random()<(d/G.lvlDiv)*boost) startConstruction(x,z,c.level+1);
     }
   }
 }
@@ -2570,11 +3694,14 @@ function monthly(){
   S.month++;
   if(S.month>=12){ S.month=0; S.year++; }
   recalcMaps();
+  phase1Monthly();                    // construction completions, cycle, pool, materials, credit warnings
+  polTick();                          // PC, docket, courts, landmarks, protests, scandal, faction drift
   let incR=0, incC=0, incI=0;
   const taxF=S.tax/7;
   for(let z=0;z<N;z++)for(let x=0;x<N;x++){
     const i=idx(x,z), c=grid[i];
     if(!isDev(c)) continue;
+    c.age=Math.min(255,(c.age||0)+1);      // months at level>=1 — folded in, no extra scan
     const lvF=0.7+0.6*lvMap[i];
     const pol=polMap[i], cr=crimeMap[i];
     const cap=capOf(c);
@@ -2583,10 +3710,14 @@ function monthly(){
     const _ac=c.type==='farm'?(c.farmAccess?1:0.35):(c.access?1:0.35);
     let target=cap*_pw*_ac*(0.55+0.45*clamp(d/100,0,1));
     if(c.type==='res'||c.type==='mix'){
-      const jobsFactor=clamp((S.capC+S.capI+(S.capF||0)+(S.capO||0))/(S.pop*0.6+1), 0.45, 1);
+      const jobsFactor=clamp((S.capC+S.capI+(S.capF||0)+(S.capO||0))/(S.pop*0.6+1), CFG.growth.jobsFloor, 1);
+      S._jobsFactor=jobsFactor;                       // hoisted: Phase 2's Labour faction reads it
       target*=jobsFactor*(1-pol*0.5)*(1-cr*0.4);     // nobody wants smog or break-ins
     }
     if(c.type==='com') target*=(1-cr*0.5);
+    // Owned lots don't shrink for want of city services — they were here first. Without
+    // this floor they relax toward zero, which then trips the abandonment path above.
+    if(politicsOn() && lots[i]) target=Math.max(target, c.occ);
     c.occ=clamp(c.occ+(target-c.occ)*0.35, 0, cap);
     if(c.type==='mix'){
       const cap2=jobCapOf(c);
@@ -2612,8 +3743,11 @@ function monthly(){
     remediation:Math.round(S.pop*clamp(S.polAvg,0,1)*1.3),                    // cleaning up pollution
     congestion:Math.round(S.pop*clamp(S.trafAvg,0,1)*0.9),                    // gridlock drag on the economy
     welfare:Math.round(S.pop*clamp(S.crimeAvg,0,1)*1.1),                     // crime & unrest
-    interest:debtInt};
-  const expenses=exp.roads+exp.parks+exp.plants+exp.police+exp.fire+exp.clinics+exp.schools+exp.services+exp.remediation+exp.congestion+exp.welfare+exp.interest;
+    interest:debtInt,
+    bonds:bondInterest(),                                                     // debt service on issued bonds
+    imports:(S._impSpend||0)};                                                // materials bought in this month
+  S._impSpend=0;
+  const expenses=exp.roads+exp.parks+exp.plants+exp.police+exp.fire+exp.clinics+exp.schools+exp.services+exp.remediation+exp.congestion+exp.welfare+exp.interest+exp.bonds+exp.imports;
   S.money+=income-expenses;
   if((income-expenses)>0 && typeof sCash==='function' && S.speedMul<=1) sCash();
   S.fin={r:incR, c:incC, i:incI, income:income, exp:exp, expenses:expenses, net:income-expenses, base:baseInc};
@@ -2627,18 +3761,13 @@ function monthly(){
   } else S.redMonths=0;
   recalcDemand();
   recalcMood();
-  const demAvg=(S.dem.res+S.dem.com+S.dem.ind)/3;
-  const _grace=clamp((S.pop||0)/1200,0.45,1);
-  const _estab=clamp((S.pop||0)/2500,0,1);
-  const _stable=_estab*(clamp(1-clamp(S.polAvg,0,1)*1.4,0,1)*clamp(1-clamp(S.crimeAvg,0,1)*1.4,0,1))*11;
-  const _prosper=(S._buildOut||0)>0.85 ? ((S._buildOut-0.85)/0.15)*clamp(1-clamp(S.polAvg,0,1),0,1)*8 : 0;   // a full, clean metropolis is an achievement
-  S.approval=Math.round(clamp(55 + demAvg*0.18 + (7-S.tax)*2.4 - S.polAvg*30*_grace - S.crimeAvg*27*_grace - Math.min(S.unpowered,12)*1.3 + (S.green-0.45)*16 + _stable + _prosper - (S.leanGap||0)*0.16 - Math.min((S.redMonths||0)*2.5,15), 0, 100));
+  S.approval=computeApproval();
   if((S.leanGap||0)>65 && S.pop>400 && !S._gapWarn){ S._gapWarn=1; toast(((S.popLean||0)<0?'\u26A0\uFE0F Voters resent towers crowding their quiet streets':'\u26A0\uFE0F Demand goes unmet while buildable land sits empty'),'bad'); }
   else if((S.leanGap||0)<45) S._gapWarn=0;
   rollFires();
   ageRubble();
   if((S.month===0 || S.month===6)){
-    const _yte=(S.nextElectionYear||9999)-S.year, _bar=Math.round(48+((S.term||1)*1.6));
+    const _yte=(S.nextElectionYear||9999)-S.year, _bar=winThreshold(S.term);
     const _proj=Math.round(S.approval||0);
     if(_yte<=2 && _yte>=0 && _proj<_bar && (S.pop||0)>150){
       const _tip=(typeof politicsAdvice==='function' && politicsAdvice()[0]) || '';
@@ -2647,11 +3776,16 @@ function monthly(){
     }
   }
   if(S.month===0 && S.year>=(S.nextElectionYear||9999) && typeof runElection==='function') runElection();
-  for(const m of MILESTONES){
+  for(let _mi=0;_mi<MILESTONES.length;_mi++){
+    const m=MILESTONES[_mi];
     if(S.pop>=m.pop && !S.milestonesHit[m.pop]){
       S.milestonesHit[m.pop]=1;
-      S.money+=m.reward;
-      let msg='\uD83C\uDFD9 '+S.cityName+' reaches '+m.name+'! +\u00A7'+m.reward.toLocaleString()+' development grant';
+      // Campaign pays milestones mostly in BORROWING POWER, not cash: \u00A7424k of grants was
+      // the single biggest reason the original game could not be lost.
+      const _rw=(CFG.milestoneRewards&&CFG.milestoneRewards[_mi]!==undefined)?CFG.milestoneRewards[_mi]:m.reward;
+      S.money+=_rw;
+      let msg='\uD83C\uDFD9 '+S.cityName+' reaches '+m.name+'! +\u00A7'+_rw.toLocaleString()+' development grant';
+      if(CFG.bonds.enabled && CFG.bonds.caps[_mi]) msg+=' \u00B7 bond ceiling now \u00A7'+CFG.bonds.caps[_mi].toLocaleString();
       if(m.unlock==='highschool') msg+=' \u00B7 \uD83C\uDF93 High school unlocked';
       if(m.unlock==='college')    msg+=' \u00B7 \uD83C\uDFDB\uFE0F College unlocked';
       toast(msg,'good');
@@ -2705,6 +3839,12 @@ function rectTiles(a,b){
   return out;
 }
 function buildable(c){ return c.terrain!=='water' && c.type==='empty'; }
+/* Every single-tile plop path funnels through here so county land can't be built on by
+   dropping a clinic on it. Phase 2 adds its polBlocked() check to the same choke point. */
+function plopAllowed(x,z){
+  if(!ownsTile(x,z)){ sErr(); toast('That’s county land — annex the tract first (A)','bad'); return false; }
+  return true;
+}
 // deliberately-placed structures are protected — you must bulldoze them on purpose
 function protectedStruct(c){ return c.type==='power'||c.type==='police'||c.type==='fire'||c.type==='clinic'||c.type==='elementary'||c.type==='highschool'||c.type==='college'||c.type==='preserve'; }
 // a plop may sit on soft land (empty, rubble, zones, parks) — never water, roads, or protected structures
@@ -2718,26 +3858,169 @@ function clearForPlop(x,z){
   c.circle=false; if(typeof removeRoundabout==='function') removeRoundabout(c);
   c.type='empty'; c.level=0; c.occ=0; c.occ2=0; c.dens=null; c.anchor=null; c.burn=0;
 }
-function zoneCost(kind){ return 0; }   // zoning is free — you pay for roads, services & upkeep
+/* Flat per-tile survey/permit fee. Signature stays single-argument: toolCost() calls this
+   with no tile to render the toolbar badge, and would break on a required second param. */
+function zoneCost(kind){
+  const Z=CFG.zoning, base=Z.base[kind]||0;
+  const hi = kind==='mix' || kind==='office' || (S.dens && S.dens[kind]==='high');
+  return Math.round(base * (hi ? Z.highMul : 1));
+}
 
-function placeRoadPath(a,b){
-  const tiles=lineTiles(a,b);
-  const fresh=tiles.filter(t=>{ const c=grid[idx(t.x,t.z)]; return c.type!=='road' && canRoad(c); });
-  if(!fresh.length) return;
-  if(!tryCharge(fresh.length*20)) return;
-  for(const t of fresh){
+/* Lay road on an already-validated, already-paid-for list of tiles. */
+function laySegment(seg){
+  for(const t of seg){
     clearForPlop(t.x,t.z);                        // roads bulldoze whatever soft land they cross
     const c=grid[idx(t.x,t.z)];
     c.type='road';
     if(typeof roadPoof==='function') roadPoof(t.x,t.z);
     redrawWithRoadNeighbors(t.x,t.z);
   }
-  roadDirty=true; powerDirty=true; mapsDirty=true;
-  sPlace();
+  if(seg.length){ roadDirty=true; powerDirty=true; mapsDirty=true; markZonedDirty(); sPlace(); }
+}
+
+/* Route-around A*. Traversable is CLEAR LAND ONLY — no buy-through, no demolition en route,
+   which also means a latent lot can't materialise mid-route (an aged home is not empty).
+   The turn penalty is what turns an A* staircase into a legible dogleg. */
+function routeAround(from, goal, avoid){
+  const R=CFG.politics.route;
+  const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
+  const H=(x,z)=>(Math.abs(x-goal.x)+Math.abs(z-goal.z))*R.tile;
+  const open=[{x:from.x,z:from.z,g:0,f:H(from.x,from.z),dir:-1,prev:null}];
+  const seen=new Map();
+  let guard=0;
+  while(open.length && guard++<12000){
+    let bi=0; for(let k=1;k<open.length;k++) if(open[k].f<open[bi].f) bi=k;
+    const cur=open.splice(bi,1)[0];
+    if(cur.x===goal.x && cur.z===goal.z){
+      const path=[]; let n=cur;
+      while(n){ path.unshift({x:n.x,z:n.z}); n=n.prev; }
+      return path.slice(1);                       // drop the stub we started from
+    }
+    for(let d=0;d<4;d++){
+      const nx=cur.x+DIRS[d][0], nz=cur.z+DIRS[d][1];
+      if(!inB(nx,nz)) continue;
+      const i=idx(nx,nz), c=grid[i];
+      const isGoal=(nx===goal.x && nz===goal.z);
+      const passable = c.terrain!=='water' && ownsTile(nx,nz) && !avoid.has(i)
+                    && (c.type==='empty'||c.type==='rubble'||c.type==='road');
+      if(!passable && !isGoal) continue;
+      const g=cur.g + R.tile + ((cur.dir>=0 && cur.dir!==d) ? R.turn : 0);
+      const key=i*4+d;
+      if(seen.has(key) && seen.get(key)<=g) continue;
+      seen.set(key,g);
+      open.push({x:nx,z:nz,g:g,f:g+H(nx,nz),dir:d,prev:cur});
+    }
+  }
+  return null;
+}
+function avoidSet(){
+  const s=new Set();
+  for(const k in lots) s.add(+k);
+  for(let i=0;i<N*N;i++){ const c=grid[i]; if(c.landmark || (c.type==='preserve')) s.add(i); }
+  for(const p of (S.pol.protests||[])){
+    const px=p.i%N, pz=(p.i/N)|0;
+    for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){ const nx=px+dx,nz=pz+dz; if(inB(nx,nz)) s.add(idx(nx,nz)); }
+  }
+  return s;
+}
+
+/* THE SIGNATURE MOMENT. The road runs straight, then stops clean at a fence — two stubs, no
+   gap — and a chip offers the exits. Every later blocker (a landmark you endorsed, a protest
+   camp, greenbelt land) arrives through this same chip with the same exits: the grammar stays
+   constant while the story changes. */
+function onRoadBlocked(blk, from, goal){
+  const t=blk.t, lot=blk.lot;
+  const P=CFG.politics;
+  addMarker(t.x, t.z, 'picket');
+  const who = lot ? lotName(lot) : null;
+  let title, sub, body;
+  if(blk.why==='refused' || blk.why==='holdout'){
+    title = who+' won’t sell';
+    sub = lot.kind==='homestead' ? 'Family homestead' : 'A home of '+Math.max(1,Math.round((grid[idx(t.x,t.z)].age||24)/12))+' years';
+    body = 'The road stops at the fence.';
+  } else if(blk.why==='landmark'){ title='Protected landmark'; sub='Designated historic'; body='This building can’t be touched without the council.'; }
+  else if(blk.why==='greenbelt'){ title='Greenbelt land'; sub='Frozen by ballot'; body='The voters closed this land for good.'; }
+  else if(blk.why==='protest'){ title='Protest camp'; sub='Occupied'; body='Crews won’t cross a picket line.'; }
+  else if(blk.why==='county'){ title='County land'; sub='Not yours yet'; body='Annex the tract before the road can continue.'; }
+  else { title='Blocked'; sub=''; body='Something here can’t be built over.'; }
+
+  toast('🚧 '+title+' — the road stops here','bad');
+  pushTicker('Road crew idles at the '+(who?who.split(' ')[1]+' line':'edge of the works'));
+
+  const btns=[];
+  if(lot && (blk.why==='refused'||blk.why==='holdout')){
+    const top=P.tiers.length-1, price=askPrice(lot, top);
+    if(isHoldout(lot)){
+      btns.push({label:'Offer whatever it takes', why:'She isn’t selling. It was her grandmother’s.', disabled:true});
+    } else {
+      btns.push({label:'Offer whatever it takes — '+fm(price), primary:true, why:Math.round(P.tiers[top]*100)/100+'× fair value', onClick:ctx=>{
+        if(!tryCharge(price)) return;
+        delete lots[t.x+t.z*N]; delete lots[idx(t.x,t.z)];
+        removeMarker(t.x,t.z);
+        addFav('neighbors',-3);
+        ctx.close();
+        placeRoadPath(t, goal);                          // resume from the freed tile
+      }});
+    }
+    if(era()>=2){
+      const cost=P.pcCost.ed + (S.pol.edTaken||0);
+      btns.push({label:'File eminent domain — '+cost+'⚖', why:pcHave(cost)?'Council vote, then months in court':'need '+cost+'⚖ — regenerates with approval', disabled:!pcHave(cost), onClick:ctx=>{
+        if(!pcSpend(cost)) return;
+        fileDocket({type:'ed', x:t.x, z:t.z, purpose:'road'});
+        ctx.close();
+      }});
+    }
+  }
+  // Route around: hovering shows the dogleg, and the price varies with the path, so this is
+  // not always the dominant button.
+  const path=routeAround(from, goal, avoidSet());
+  if(path && path.length){
+    const rcost=path.filter(p=>grid[idx(p.x,p.z)].type!=='road').length*20;
+    btns.push({label:'Route around — '+fm(rcost), why:path.length+' tiles · the bend stays on the map', onClick:ctx=>{
+      if(!tryCharge(rcost)) return;
+      laySegment(path.filter(p=>grid[idx(p.x,p.z)].type!=='road'));
+      removeMarker(t.x,t.z);
+      addFav('neighbors',3,'the mayor went around');
+      recalcStats(); updateTop();
+      ctx.close();
+      toast('The road bends around '+(who||'the obstruction')+' — and stays bent','good');
+    }});
+  } else {
+    btns.push({label:'Route around', why:'No clear route — the land beyond is closed', disabled:true});
+  }
+  btns.push({label:'Never mind', why:'Leave the road where it stops', onClick:ctx=>{ removeMarker(t.x,t.z); ctx.close(); }});
+
+  openChip({x:t.x, z:t.z, title:title, sub:sub, body:body, buttons:btns, onClose:()=>{}});
+}
+
+function placeRoadPath(a,b){
+  const tiles=lineTiles(a,b);
+  const seg=[], bought=[]; let blocker=null, landCost=0;
+  for(const t of tiles){
+    const i=idx(t.x,t.z), c=grid[i];
+    if(c.type==='road') continue;                 // already paved, keep walking
+    if(c.terrain==='water') continue;             // can't bridge — skip, as before
+    if(!ownsTile(t.x,t.z)){ blocker={t:t, why:'county', lot:null}; break; }
+    const hard=polBlocked(t.x,t.z);
+    if(hard){ blocker={t:t, why:hard, lot:lots[i]||null}; break; }
+    if(protectedStruct(c)){ blocker={t:t, why:'protected', lot:null}; break; }
+    const lot=ensureLot(i);
+    if(lot){
+      if(willSell(lot,0)){ landCost+=askPrice(lot,0); bought.push(i); seg.push(t); }
+      else { lot.refusals++; blocker={t:t, why:'refused', lot:lot}; break; }
+    } else seg.push(t);
+  }
+  if(!seg.length && !blocker) return;
+  if(seg.length){
+    if(!tryCharge(seg.length*20+landCost)) return;
+    for(const i of bought) delete lots[i];
+    laySegment(seg);
+  }
+  if(blocker){ onRoadBlocked(blocker, seg.length?seg[seg.length-1]:a, b); return; }
   hint('road1','Roads down! Now drag a Residential zone (4) alongside them.');
   // a road that fully crosses another makes a 4-way junction — offer a roundabout
   const consider=new Set();
-  for(const t of fresh){
+  for(const t of seg){
     consider.add(idx(t.x,t.z));
     for(const [dx,dz] of [[0,-1],[1,0],[0,1],[-1,0]]){
       if(inB(t.x+dx,t.z+dz)) consider.add(idx(t.x+dx,t.z+dz));
@@ -2754,24 +4037,44 @@ function placeRoadPath(a,b){
 }
 function zoneRect(kind,a,b){
   const SOFT={empty:1,rubble:1,res:1,com:1,ind:1,mix:1,farm:1,office:1};   // paint a new zone over any of these (clears the old building); never water, roads, parks or plops
-  const all=rectTiles(a,b).filter(t=>{ const c=grid[idx(t.x,t.z)]; return c.terrain!=='water' && SOFT[c.type]; });
+  const rect=rectTiles(a,b);
+  const owned=rect.filter(t=>ownsTile(t.x,t.z));
+  const countyOnly = owned.length===0 && rect.length>0;
+  const all=owned.filter(t=>{ const c=grid[idx(t.x,t.z)]; return c.terrain!=='water' && SOFT[c.type]; });
   const tiles = all.filter(t=> kind==='farm' ? grid[idx(t.x,t.z)].farmAccess : grid[idx(t.x,t.z)].access);   // target zone's own road rule: farms within 8 tiles, urban within 3
   if(!tiles.length){
-    if(all.length){ sErr(); toast(kind==='farm'?'Farms must be within 8 tiles of a road':'Zones must be within 3 tiles of a road','bad'); }
+    if(countyOnly){ sErr(); toast('That’s county land — annex the tract first (A)','bad'); }
+    else if(all.length){ sErr(); toast(kind==='farm'?'Farms must be within 8 tiles of a road':'Zones must be within 3 tiles of a road','bad'); }
     return;
   }
   const dn = kind==='mix' ? 'high' : (S.dens[kind]||'low');
-  for(const t of tiles){
+  // Upzoning ordinance: from era 3, painting high density in a district needs that
+  // district's one-time council vote. Existing high density is grandfathered.
+  if(politicsOn() && era()>=3 && dn==='high'){
+    const d=distOf(tiles[0].x, tiles[0].z);
+    if(!S.pol.upzoned[d]){
+      sErr();
+      toast('The '+DISTRICTS[d]+' has no upzoning ordinance — the council must pass one first','bad');
+      if(!S.pol.docket.some(it=>it.type==='upzone'&&it.dist===d)) fileDocket({type:'upzone', dist:d});
+      return;
+    }
+  }
+  const fresh=tiles.filter(t=>{ const c=grid[idx(t.x,t.z)]; return !(c.type===kind && c.dens===dn); });
+  const fee=zoneCost(kind)*fresh.length;
+  if(fee>0 && !tryCharge(fee)) return;                                          // reject the whole rect, not a partial paint
+  for(const t of fresh){
     const c=grid[idx(t.x,t.z)];
-    if(c.type===kind && c.dens===dn) continue;                                  // already this exact zone — leave its growth alone
     if(c.type!=='empty' && c.type!=='rubble'){ clearFlame(c); clearMesh(c); clearZap(c); }   // re-zoning bulldozes whatever was there
     clearTree(c);
     c.type=kind; c.level=0; c.occ=0; c.occ2=0; c.dens=dn; c.anchor=null; c.burn=0; c.preType=null; c.preDens=null;
+    c.stage=null; c.buildL=0; c.buildT=0;                                       // abandon any site here (no refund — anti-cycling)
     redrawTile(t.x,t.z);
   }
   powerDirty=true; mapsDirty=true;
+  markZonedDirty();
   recalcStats();
   sPlace();
+  if(fee>0) toast('Zoned '+fresh.length+' tiles — '+fm(fee)+' in surveys & permits');
   hint('zone1','Zones need electricity — place a power plant (9) and link it to town with roads.');
 }
 function dezoneRect(a,b){
@@ -2781,13 +4084,16 @@ function dezoneRect(a,b){
   for(const t of tiles){
     const c=grid[idx(t.x,t.z)];
     clearFlame(c); clearMesh(c); clearZap(c); clearTree(c);
+    if(c.stage==='uc') S.sites=Math.max(0,(S.sites||0)-1);
     c.type='empty'; c.level=0; c.occ=0; c.occ2=0; c.dens=null; c.anchor=null; c.burn=0; c.preType=null; c.preDens=null;
+    c.stage=null; c.buildL=0; c.buildT=0;                      // abandon the site; pool/materials are NOT refunded
     redrawTile(t.x,t.z);
   }
-  powerDirty=true; mapsDirty=true; recalcStats(); recalcDemand(); updateTop(); sDoze();
+  powerDirty=true; mapsDirty=true; markZonedDirty(); recalcStats(); recalcDemand(); updateTop(); sDoze();
 }
 function placePreserve(x,z){
   const c=grid[idx(x,z)];
+  if(!plopAllowed(x,z)) return;
   if(!canPlop(c) || c.type!=='empty'){ sErr(); toast('Acquire open, undeveloped land \u2014 bulldoze built lots first','bad'); return; }
   if(!tryCharge(120)) return;
   clearForPlop(x,z);
@@ -2802,6 +4108,7 @@ function placePreserve(x,z){
 }
 function placePark(x,z){
   const c=grid[idx(x,z)];
+  if(!plopAllowed(x,z)) return;
   if(!canPlop(c)){ sErr(); toast('Can\u2019t build a park on water or roads','bad'); return; }
   if(!tryCharge(60)) return;
   clearForPlop(x,z);
@@ -2813,6 +4120,7 @@ function placePark(x,z){
   sPlace();
 }
 function placePlant(ax,az,ptype){
+  if(!plopAllowed(ax,az)) return;
   ptype=ptype||'power'; const _P=PLANTS[ptype]||PLANTS.power;
   const cells=[];
   let ok=true;
@@ -2841,6 +4149,8 @@ function placePlant(ax,az,ptype){
 }
 function bulldoze(x,z){
   const c=grid[idx(x,z)];
+  markZonedDirty();
+  if(c.stage==='uc'){ S.sites=Math.max(0,(S.sites||0)-1); c.stage=null; c.buildL=0; c.buildT=0; }
   if(c.type==='power'){
     if(!tryCharge(8)) return false;
     const a=c.anchor;
@@ -2885,8 +4195,20 @@ function bulldoze(x,z){
   }
   if(c.type==='preserve'){                          // developing protected land — a deliberate political act
     const _wild=c.wild;
-    if(!tryCharge(_wild ? WILD_BASE : PRESERVE_FEE)) return false;
-    if(_wild) S.wildTaken=(S.wildTaken||0)+1;
+    if(S.pol && S.pol.greenbelt && _wild){ sErr(); toast('The greenbelt is closed — the voters shut this land for good','bad'); return false; }
+    // WILD_STEP finally wired: every acre you pave makes the next one dearer.
+    const _fee=_wild ? wildPrice() : PRESERVE_FEE;
+    if(era()>=2 && _wild && (S.wildTaken||0)>=CFG.politics.wild.voteAt && !S.pol._wildOpen){
+      sErr(); toast('Opening more protected land needs a council vote','bad');
+      if(!S.pol.docket.some(d=>d.type==='wild')) fileDocket({type:'wild', x:x, z:z});
+      return false;
+    }
+    if(!tryCharge(_fee)) return false;
+    if(_wild){
+      S.wildTaken=(S.wildTaken||0)+1;
+      addFav('greens',-2);
+      if(S.wildTaken===CFG.politics.wild.ballotAt) triggerGreenbelt();
+    }
     S.devLean = clamp((S.devLean||0) + (_wild?1.5:0.8), -100, 100);   // your mayoral record tilts toward growth
     if(_wild && !S.hinted.devland){ S.hinted.devland=1; toast('Developing protected land \u2014 your record tilts toward growth; conservationists are watching','bad'); }
     clearFlame(c); clearMesh(c);
@@ -3000,6 +4322,7 @@ const CIVIC={
   clinic:    {cost:500,  parts:clinicParts,  seed:48, msg:'\uD83C\uDFE5 Clinic open \u2014 health care within 8 tiles, lets buildings grow taller \u00B7 \u00A730/mo'}
 };
 function placeStation(kind,x,z){
+  if(!plopAllowed(x,z)) return;
   const cfg=CIVIC[kind];
   const fp=cfg.fp||1;
   const cells=[]; let ok=true, acc=false;
@@ -3078,14 +4401,42 @@ function previewRect(){
   for(const t of tiles){
     const cc=grid[idx(t.x,t.z)];
     const acc = TOOL==='farm' ? cc.farmAccess : cc.access;
-    const ok=buildable(cc) && acc;
+    const ok=buildable(cc) && acc && ownsTile(t.x,t.z);
     if(ok) n++;
     marks.push(ok ? {x:t.x,z:t.z,zone:ZC[TOOL]} : {x:t.x,z:t.z,bad:true});
   }
   paintOverlay(marks);
   const tool=TOOLS.find(t=>t.id===TOOL);
   const dn = TOOL==='mix' ? 'high' : (S.dens[TOOL]||'low');
-  setChipHTML('<div class="t">'+tool.nm+' zone · '+dn+' density</div><div class="cost">\u00D7'+n+' tiles — Free</div><div class="s">must be \u2264'+(TOOL==='farm'?8:3)+' tiles from a road</div>');
+  setChipHTML('<div class="t">'+tool.nm+' zone · '+dn+' density</div><div class="cost">\u00D7'+n+' tiles — '+(zoneCost(TOOL)*n ? fm(zoneCost(TOOL)*n)+(zoneCost(TOOL)*n>S.money?' (short)':'') : 'Free')+'</div><div class="s">must be \u2264'+(TOOL==='farm'?8:3)+' tiles from a road</div>');
+}
+/* Annex drags a RECTANGLE OF TRACTS in one purchase — one aggregated price, one charge.
+   289 individual tract buys would decay into lawn-mowing by hour two. */
+function tractRectList(a,b){
+  const ax=(a.x/TRACT)|0, az=(a.z/TRACT)|0, bx=(b.x/TRACT)|0, bz=(b.z/TRACT)|0;
+  const x1=Math.min(ax,bx), x2=Math.max(ax,bx), z1=Math.min(az,bz), z2=Math.max(az,bz);
+  const out=[];
+  for(let tz=z1;tz<=z2;tz++)for(let tx=x1;tx<=x2;tx++) out.push(tz*TROW+tx);
+  return out;
+}
+function previewTract(){
+  if(!drag) return;
+  const list=tractRectList(drag.start, drag.cur);
+  const marks=[]; let price=0, buying=0, water=0, lvSum=0, cnt=0;
+  for(const t of list){
+    const own=S.owned[t]===1;
+    for(const p of tractTiles(t)){
+      marks.push(own ? {x:p.x,z:p.z,faint:true} : {x:p.x,z:p.z,zone:'rgba(255,195,77,.34)'});
+      if(!own){ const c=grid[idx(p.x,p.z)]; if(c.terrain==='water') water++; lvSum+=lvMap?lvMap[idx(p.x,p.z)]:0.35; cnt++; }
+    }
+    if(!own){ price+=tractPrice(t); buying++; }
+  }
+  paintOverlay(marks);
+  if(!buying){ setChipHTML('<div class="t">Already city land</div><div class="s">drag across county land to annex it</div>'); return; }
+  const lvAvg=cnt?Math.round((lvSum/cnt)*100):0;
+  setChipHTML('<div class="t">Annex '+buying+' tract'+(buying>1?'s':'')+'</div>'
+    +'<div class="cost">'+fm(price)+(price>S.money?' (short)':'')+'</div>'
+    +'<div class="s">'+(buying*TRACT*TRACT)+' tiles · avg land value '+lvAvg+'%'+(water?' · '+water+' water':'')+'</div>');
 }
 function gridViewMarks(){
   const marks=[];
@@ -3146,6 +4497,7 @@ function setView(v){
   S.view=v;
   const showB=!v;                                  // data view: hide buildings & trees so the map isn't occluded
   for(let i=0;i<N*N;i++){ const c=grid[i]; if(c.mesh) c.mesh.visible=showB; if(c.treeMesh) c.treeMesh.visible=showB; }
+  if(typeof setMarkersVisible==='function') setMarkersVisible(showB);
   if(typeof updateMapPanel==='function') updateMapPanel();
   if(S.view) paintOverlay([]); else { clearOverlay(); hoverPreview(hoverT); }
 }
@@ -3224,12 +4576,16 @@ canvasEl.addEventListener('pointerdown', e=>{
   if(drag && (drag.mode==='line'||drag.mode==='rect') && e.button===2){
     drag=null; clearOverlay(); return;          // right-click cancels a pending stroke
   }
-  if(e.button===1||e.button===2||TOOL==='pointer'){ startPan(e); return; }
+  if(e.button===1||e.button===2||TOOL==='pointer'){
+    if(TOOL==='pointer'&&e.button===0){ const _t=pickTile(e.clientX,e.clientY);
+      if(_t){ const _c=grid[idx(_t.x,_t.z)]; if(_c.mesh) constructionAnims.push({mesh:_c.mesh, s:0, jelly:true, dur:0.42}); } }
+    startPan(e); return; }
   const t=pickTile(e.clientX,e.clientY);
   if(!t) return;
   if(TOOL==='bulldoze'){ drag={mode:'paint', last:t}; bulldoze(t.x,t.z); }
   else if(TOOL==='road'){ drag={mode:'line', start:t, cur:t}; previewRoad(); }
   else if(TOOL==='res'||TOOL==='com'||TOOL==='ind'||TOOL==='mix'||TOOL==='farm'||TOOL==='office'||TOOL==='dezone'){ drag={mode:'rect', start:t, cur:t}; previewRect(); }
+  else if(TOOL==='annex'){ drag={mode:'tract', start:t, cur:t}; previewTract(); }
   else if(TOOL==='park'){ drag={mode:'paintPark', last:t}; placePark(t.x,t.z); }
   else if(TOOL==='preserve'){ drag={mode:'paintPreserve', last:t}; placePreserve(t.x,t.z); }
   else if(TOOL==='police'||TOOL==='fire'||TOOL==='clinic'||TOOL==='elementary'||TOOL==='highschool'||TOOL==='college'){ placeStation(TOOL,t.x,t.z); }
@@ -3289,6 +4645,9 @@ canvasEl.addEventListener('pointermove', e=>{
     } else if(drag.mode==='rect'){
       if(t) drag.cur=t;
       previewRect();
+    } else if(drag.mode==='tract'){
+      if(t) drag.cur=t;
+      previewTract();
     }
     return;
   }
@@ -3301,6 +4660,7 @@ function endPointer(e){
   if(!drag) return;
   if(drag.mode==='line') placeRoadPath(drag.start, drag.cur);
   else if(drag.mode==='rect'){ if(TOOL==='dezone') dezoneRect(drag.start, drag.cur); else zoneRect(TOOL, drag.start, drag.cur); }
+  else if(drag.mode==='tract'){ annexTracts(tractRectList(drag.start, drag.cur)); }
   drag=null;
   clearOverlay();
   hoverPreview(hoverT);
@@ -3327,7 +4687,8 @@ canvasEl.addEventListener('wheel', e=>{
   }
 }, {passive:false});
 
-const KEYTOOL={b:'bulldoze', r:'road', z:'res', x:'com', c:'ind', v:'mix', p:'park', o:'police', f:'fire', j:'clinic', u:'power', e:'elementary', h:'highschool', l:'college', g:'farm', y:'office', k:'preserve'};
+// 'a' is NOT available — it's WASD panning, and KEYTOOL is checked before the pan keys.
+const KEYTOOL={b:'bulldoze', r:'road', z:'res', x:'com', c:'ind', v:'mix', p:'park', o:'police', f:'fire', j:'clinic', u:'power', e:'elementary', h:'highschool', l:'college', g:'farm', y:'office', k:'preserve', t:'annex'};
 window.addEventListener('keydown', e=>{
   if(e.ctrlKey||e.metaKey||e.altKey) return;
   if(overlayEl.classList.contains('show')){
@@ -3340,6 +4701,7 @@ window.addEventListener('keydown', e=>{
   if(k==='0'&&TOOLS[9]){ setTool(TOOLS[9].id); return; }
   if(KEYTOOL[k]){ setTool(KEYTOOL[k]); return; }
   if(k==='n'){ toggleNight(); return; }
+  if(k==='\\'){ if(typeof photoMode==='function') photoMode(); return; }
   if(k==='m'){ cycleView(); return; }
   if(k==='escape'){ drag=null; clearOverlay(); setTool('pointer'); return; }
   if(k==='q'){ azimIdx=(azimIdx+1)&3; azimTgt+=Math.PI/2; return; }
@@ -3394,6 +4756,7 @@ const TOOLS=[
   {id:'bulldoze', nm:'Bulldoze',    cost:8,    ic:'\uD83D\uDE9C', key:'B'},
   {id:'road',     nm:'Road',        cost:20,   ic:'\uD83D\uDEE3', key:'R'},
   {id:'dezone',   nm:'De-zone',     cost:0,    ic:'\u2B1A', key:''},
+  {id:'annex',    nm:'Annex land',  cost:0,    ic:'\uD83D\uDCDC', key:'T'},
   {id:'res',      nm:'Residential', sw:'var(--r)', glyph:'res', key:'Z', dens:true},
   {id:'com',      nm:'Commercial',  sw:'var(--c)', glyph:'com', key:'X', dens:true},
   {id:'ind',      nm:'Industrial',  sw:'var(--i)', glyph:'ind', key:'C', dens:true},
@@ -3424,7 +4787,7 @@ const GROUPS={
   edu:  {nm:'Schools', ic:'\uD83C\uDF93', members:['elementary','highschool','college']}
 };
 const groupCur={power:'power', edu:'elementary'};
-const TB_LAYOUT=['pointer','bulldoze','dezone','road','sep','res','com','ind','mix','farm','office','sep','grp:power','sep','police','fire','clinic','grp:edu','sep','park','preserve'];
+const TB_LAYOUT=['pointer','bulldoze','dezone','road','annex','sep','res','com','ind','mix','farm','office','sep','grp:power','sep','police','fire','clinic','grp:edu','sep','park','preserve'];
 function toolBtnInner(t){
   const ic=t.sw ? '<span class="ic"><span class="sw" style="background:'+t.sw+'">'+(t.glyph&&ZGLYPH[t.glyph]?ZGLYPH[t.glyph]:(t.letter||''))+'</span></span>' : '<span class="ic">'+t.ic+'</span>';
   const dn=t.dens ? '<span class="dn"></span>' : (t.id==='mix' ? '<span class="dn hi">HI</span>' : '');
@@ -3432,7 +4795,7 @@ function toolBtnInner(t){
 }
 function makeToolBtn(t, extra){
   const b=document.createElement('button'); b.className='tool'+(extra?' '+extra:''); b.dataset.id=t.id;
-  b.innerHTML=toolBtnInner(t); b.addEventListener('click',()=>setTool(t.id)); return b;
+  b.innerHTML=toolBtnInner(t); b.addEventListener('click',()=>{ if(typeof sClick==='function') sClick(); setTool(t.id); }); return b;
 }
 function buildToolbar(){
   const wrap=$('tools'); wrap.innerHTML='';
@@ -3605,19 +4968,15 @@ function updateTop(){
   fundsEl.classList.toggle('broke', S.money<0);
   popV.textContent=S.pop.toLocaleString('en-US');
   dateV.textContent=MONTHS[S.month]+' '+S.year;
-  const _grace=clamp((S.pop||0)/1200,0.45,1);   // a young city forgives pollution & crime it can't yet afford to fix
-  const _estab=clamp((S.pop||0)/2500,0,1);      // an established city rewards steady, clean governance
-  const _stable=_estab*(clamp(1-clamp(S.polAvg||0,0,1)*1.4,0,1)*clamp(1-clamp(S.crimeAvg||0,0,1)*1.4,0,1))*11;
-  const _prosper=(S._buildOut||0)>0.85 ? ((S._buildOut-0.85)/0.15)*clamp(1-clamp(S.polAvg||0,0,1),0,1)*8 : 0;
-  S.approval=Math.round(clamp(55 + ((S.dem.res+S.dem.com+S.dem.ind)/3)*0.18 + (7-(S.tax||0))*2.4 - clamp(S.polAvg||0,0,1)*30*_grace - clamp(S.crimeAvg||0,0,1)*27*_grace - Math.min(S.unpowered||0,12)*1.3 + ((S.green||0)-0.45)*16 + _stable + _prosper - (S.leanGap||0)*0.16 - Math.min((S.redMonths||0)*2.5,15), 0, 100));
-  { const _ap=S.approval||0, _bar=Math.round(48+((S.term||1)*1.6)), _av=$('apprV'), _as=$('apprStat');
+  S.approval=computeApproval();
+  { const _ap=S.approval||0, _bar=winThreshold(S.term), _av=$('apprV'), _as=$('apprStat');
     const _liv=(S.pop||0)>=50;
     if(_av){ _av.textContent=_liv?(_ap+'%'):'\u2014'; const _mg=_ap-_bar; _av.style.color=!_liv?'var(--dim)':(_mg>=10?'#52c06a':_mg>=3?'#9acd32':_mg>=0?'#e0c33e':_mg>=-6?'#e08a3e':'#e05a4e'); }
-    const _ay=S.nextElectionYear||(S.year+4), _yrs=Math.max(0,_ay-S.year);
+    const _ay=S.nextElectionYear||(S.year+CFG.election.termYears), _yrs=Math.max(0,_ay-S.year);
     if(_as) _as.dataset.tip=!_liv?'No residents yet \u2014 your approval appears once people move in.':('Re-election '+_ay+(_yrs<=1?' (next year)':' ('+_yrs+' yrs)')+' \u2014 you need about '+_bar+'% to keep your seat.'); }
   { const _cb=$('campaignBar');
     if(_cb && started){
-      const _by=S.nextElectionYear||9999, _yte=_by-S.year, _eb=Math.round(48+((S.term||1)*1.6));
+      const _by=S.nextElectionYear||9999, _yte=_by-S.year, _eb=winThreshold(S.term);
       const _proj=Math.round(S.approval||0), _mg=_proj-_eb;
       if(_yte<=2 && _yte>=0 && (S.pop||0)>150){
         const _win=_mg>=0, _when=_yte<=0?'this year':(_yte===1?'next year':_yte+' years');
@@ -3627,9 +4986,27 @@ function updateTop(){
         _cb.innerHTML=((S.strikes||0)>0?'<b style="color:#ffb257">FINAL CHANCE</b> \u00B7 ':'')+_m; _cb.classList.add('show'); _cb.classList.toggle('lose',!_win); _cb.classList.toggle('urgent',!_win&&_yte<=1);
       } else _cb.classList.remove('show');
     } }
+  { const _hb=$('hallBtn'); if(_hb) _hb.style.display = (politicsOn() && era()>=1 && started) ? '' : 'none'; }
+  { const _ps=$('pcStat'), _pv2=$('pcV');
+    if(_ps){
+      if(politicsOn() && era()>=1 && started){
+        _ps.style.display='';
+        if(_pv2) _pv2.textContent='⚖ '+(S.pol.pc||0)+'/'+pcCap();
+        _ps.dataset.tip='Political capital — spent on fights, not favours: filing eminent domain, whipping a council seat, negotiating with a protest. Regenerates faster with high approval.';
+      } else _ps.style.display='none';
+    } }
+  { const _pr=$('poolRow'), _pv=$('poolV'), _av=$('advV');
+    if(_pr){
+      if(CFG.pool.enabled && started){
+        _pr.style.display='block';
+        if(_pv) _pv.textContent=Math.round((S.pool&&S.pool.res)||0).toLocaleString();
+        // The advisor: per-tile chips are forensics, this is the diagnosis.
+        if(_av) _av.textContent=(typeof advisorLine==='function'?advisorLine():'');
+        _pr.dataset.tip='Families waiting to move in. Homes only start when enough have arrived \u2014 raise the city\u2019s appeal with jobs, parks and low taxes.';
+      } else _pr.style.display='none';
+    } }
   cityNameEl.textContent=S.cityName+' \u00B7 '+(typeof currentRank==='function'?currentRank():'');
   if(typeof updTut==='function') updTut();
-  if(typeof updateAmbience==='function') updateAmbience();
   function bar(el,v,locked){
     const col=el.parentElement&&el.parentElement.parentElement;   // <i> -> .bar -> .col
     if(col) col.classList.toggle('locked', !!locked);
@@ -3682,6 +5059,40 @@ function tileInfo(t){
   const c=grid[idx(t.x,t.z)];
   let h='';
   if(c.terrain==='water') return '<div class="t">Open water</div><div class="s">Nothing builds here</div>';
+  // Owned lots explain themselves on hover, before the player ever runs a road at one.
+  { const _lot=lots[idx(t.x,t.z)];
+    if(_lot && _lot.kind!=='trust'){
+      const yrs=Math.max(1,Math.round((c.age||24)/12));
+      const P=CFG.politics, top=P.tiers.length-1;
+      const buyable=willSell(_lot, top);
+      return '<div class="t">🏡 '+lotName(_lot)+'</div>'
+        +'<div class="s">'+(_lot.kind==='homestead'?'Family homestead':'A home here')+' · '+yrs+' years'+(_lot.refusals?' · refused '+_lot.refusals+'×':'')+'</div>'
+        +'<div class="cost">'+(buyable?('Would sell for '+fm(askPrice(_lot, top))):'Will not sell at any price')+'</div>'
+        +'<div class="s">'+(buyable
+            ? 'Run a road or zone here and you’ll be offered the price.'
+            : 'Build around them, or take it to court. Annexing the parcel doesn’t buy the house.')+'</div>';
+    } }
+  if(!ownsTile(t.x,t.z)){
+    const _tp=tractPrice(tractAt(t.x,t.z));
+    return '<div class="t">County land</div><div class="cost">'+fm(_tp)+' per 4×4 parcel</div>'
+      +'<div class="s">Not yours yet — press <b>T</b> and drag to annex. Roads may cross it; nothing builds on it.</div>'
+      +'<div class="s">Cheaper in a recession, dearer as your city grows.</div>';
+  }
+  // Every blocked action shows WHY it's blocked and what the options are.
+  if(c.stage==='uc'){
+    const isFarm=c.type==='farm';
+    const acc=isFarm?c.farmAccess:c.access;
+    const stalled = !acc || (!isFarm && !c.netOn);
+    return '<div class="t">🏗 Under construction</div>'
+      +'<div class="cost">'+c.buildT+' month'+(c.buildT===1?'':'s')+' remaining</div>'
+      +'<div class="s">'+(c.level===0?'New build':'Upgrading to level '+c.buildL)+'</div>'
+      +(stalled?'<div class="s warn">'+(!acc?'🚧 Work paused — no road access':'⚡ Work paused — no power')+'</div>':'');
+  }
+  if(CFG.pool.enabled && c.level===0 && ZONE_T[c.type] && c.type!=='farm'){
+    const acc=c.access, need=poolNeed(c,1);
+    if(acc && c.netOn && need>0 && (S.pool.res||0)<need)
+      h+='<div class="s warn">🕰 Waiting for new arrivals — '+Math.round(S.pool.res||0)+' of '+need+' families</div>';
+  }
   if(c.burn>0) return '<div class="t">\uD83D\uDD25 On fire!</div><div class="s warn">Bulldoze to cut a firebreak — fire coverage slows the spread</div>';
   if(c.type==='rubble') return '<div class="t">Burned ruins</div><div class="s">Bulldoze (\u00A74) to clear the lot</div>';
   if(c.type==='police'||c.type==='fire'||c.type==='clinic'||c.type==='elementary'||c.type==='highschool'||c.type==='college'){
@@ -3804,7 +5215,13 @@ function tickerMessages(){
   if((S.leanGap||0)<22 && S.pop>1000) m.push('City hall and the public see eye to eye on '+S.cityName+'\u2019s future');
   return m;
 }
+/* Event headlines jump the queue ahead of ambient flavour. The ticker is the primary
+   narrator for slow-burn news (families giving up, the cycle turning, court days) —
+   cheap, ambient, zero interruption. */
+const tickerQueue=[];
+function pushTicker(msg){ if(msg && tickerQueue.length<8) tickerQueue.push(msg); }
 function pickTicker(){
+  if(tickerQueue.length){ tickerTextEl.textContent=tickerQueue.shift(); return; }
   const opts=tickerMessages();
   tickerTextEl.textContent=opts[Math.floor(Math.random()*opts.length)];
 }
@@ -3823,10 +5240,25 @@ function wpShow(i){
   startBtn.textContent = last ? (started?'Back to the city':'Start building') : 'Next ›';
   modalBody.scrollTop=0;
 }
+/* Mode is chosen on the start screen and applied when the player commits. helpHTML is
+   re-injected into modalBody on every openHelp, so the handler is delegated to the
+   container rather than bound to buttons that get thrown away. */
+let pendingMode='campaign';
+function syncModeBtns(){
+  modalBody.querySelectorAll('.modeBtn').forEach(b=>b.classList.toggle('on', b.dataset.mode===pendingMode));
+}
+modalBody.addEventListener('click', e=>{
+  const b=e.target.closest && e.target.closest('.modeBtn');
+  if(!b) return;
+  pendingMode = b.dataset.mode==='classic' ? 'classic' : 'campaign';
+  syncModeBtns();
+  if(typeof sClick==='function') sClick();
+});
 function openHelp(first){
   modalBody.innerHTML=helpHTML;
   modalFoot.style.display='flex';
   const _nr=$('nameRow'); if(_nr) _nr.style.display=first?'flex':'none';
+  const _mr=$('modeRow'); if(_mr){ _mr.style.display=first?'block':'none'; syncModeBtns(); }
   overlayEl.classList.add('show');
   wpFirst=first; wpShow(0);
 }
@@ -3835,7 +5267,14 @@ function closeHelp(){
   mapPanelEl.classList.add('show');
   if(!started){
     const _ci=$('cityNameInput'); if(_ci && _ci.value.trim()) S.cityName=_ci.value.trim().slice(0,28);
+    // The very first city is built by init(), not newCity() — so mode lands here too.
+    setMode(pendingMode);
+    S.nextElectionYear=S.year+CFG.election.termYears;
+    seedFoundingTracts();                     // Classic owns everything; Campaign owns a 3x3 block
+    seedHomesteads();
+    drawAll();
     started=true;
+    updateTop();
     toast('Welcome to '+S.cityName+'! Start with a road (3).','good');
   }
 }
@@ -3864,6 +5303,8 @@ function newCity(){
     if(c.treeMesh){ scene.remove(c.treeMesh); c.treeMesh.geometry.dispose(); }
   }
   if(typeof hideCirclePopup==='function') hideCirclePopup();
+  if(typeof closeChip==='function') closeChip(true);
+  if(typeof clearMarkers==='function') clearMarkers();
   while(cars.length) killCar(cars.pop());
   for(const p of smokePool){ p.active=false; p.sp.visible=false; p.sp.material.opacity=0; }
   smokeEmitters=[];
@@ -3871,10 +5312,22 @@ function newCity(){
   S.money=25000; S.pop=0; S.capR=S.capC=S.capI=0; S.occC=S.occI=0;
   S.dem={res:18,com:6,ind:14,farm:11,office:5};
   S.popLean=0; S.recordLean=0; S.leanGap=0; S.growPress=0; S.restPress=0; S._openLand=0; S._lowUp=0; S._harsh=0;
-  S.month=0; S.year=2000;
-  S.term=1; S.nextElectionYear=2004; S.electionsWon=0; S.votedOut=false; S.peakPop=0; S.strikes=0; S.redMonths=0; S.failed=0; S.tutDone=0;
+  S.month=0; S.year=START_YEAR;
+  setMode(pendingMode);                                     // Classic or Campaign, chosen on the start screen
+  S.term=1; S.nextElectionYear=S.year+CFG.election.termYears; S.electionsWon=0; S.votedOut=false; S.peakPop=0; S.strikes=0; S.redMonths=0; S.failed=0; S.tutDone=0;
   S.roads=0; S.parks=0; S.plants=0; S.zoned=0; S.unpowered=0;
   S.wildTaken=0; S.devLean=0;
+  // Phase 1 — S is an open schema, so every new field must be reset by hand or it leaks
+  // across cities (a stale migration pool would make city #2 boom instantly).
+  S.pool={res:CFG.pool.start}; S.mat=CFG.materials.start; S.bonds={principal:0};
+  S.econ=1; S.econDrift=0; S.marketing=0; S.sites=0; S.adv=null;
+  S._pioneers=0; S._impSpend=0; S._impUnits=0; S._matLocal=0; S._lost=0; S._econBand='steady';
+  markZonedDirty(); resetGates();
+  // Phase 2
+  lots={};
+  S.pol={pc:3, fav:{growth:10,neighbors:0,greens:0,labor:0}, council:[], upzoned:{},
+         docket:[], court:[], petitions:[], protests:[],
+         edTaken:0, graft:0, scandal:0, greenbelt:false, recallPending:false, nominee:-1, nomFuse:0};
   S.netLoad=0; S.netCap=0;
   S.milestonesHit={}; S.hinted={};
   S.dens={res:'low',com:'low',ind:'low'};
@@ -3885,6 +5338,8 @@ function newCity(){
   fireAcc=0;
   nightTgt=0;
   genTerrain();
+  seedFoundingTracts();
+  seedHomesteads();
   drawAll();
   clearOverlay();
   refreshRoads(); recomputePower(); recalcMaps();
@@ -3902,12 +5357,99 @@ function newCity(){
 
 /* ---------- sound ---------- */
 let actx=null, lastGrowS=0;
+/* ---------- master bus ----------
+   Ambience, wind and SFX each connected straight to destination before, so there was no
+   single point for volume, ducking or limiting, and salient events sat INSIDE the bed
+   instead of on top of it. */
+let masterGain=null, musicBus=null, ambBus=null, sfxNode=null, uiBus=null, duckGain=null, revNode=null;
+function buildAudioGraph(){
+  if(!actx || masterGain) return;
+  masterGain=actx.createGain(); masterGain.gain.value=0.9;
+  const comp=actx.createDynamicsCompressor();
+  comp.threshold.value=-18; comp.knee.value=12; comp.ratio.value=4; comp.attack.value=0.005; comp.release.value=0.25;
+  masterGain.connect(comp); comp.connect(actx.destination);
+  try{                                                    // 2s stereo impulse, generated — zero assets
+    const len=Math.floor(actx.sampleRate*2.0);
+    const buf=actx.createBuffer(2,len,actx.sampleRate);
+    for(let ch=0;ch<2;ch++){
+      const d=buf.getChannelData(ch); let lp=0;
+      for(let i=0;i<len;i++){
+        const n=(Math.random()*2-1)*Math.pow(1-i/len,2.4);
+        lp+=0.35*(n-lp);                                  // darken the late reflections
+        d[i]=lp;
+      }
+    }
+    revNode=actx.createConvolver(); revNode.buffer=buf;
+    const rs=actx.createGain(); rs.gain.value=0.16;
+    revNode.connect(rs); rs.connect(masterGain);
+  }catch(e){ revNode=null; }
+  duckGain=actx.createGain(); duckGain.gain.value=1; duckGain.connect(masterGain);
+  musicBus=actx.createGain(); musicBus.gain.value=0.42; musicBus.connect(duckGain);
+  ambBus=actx.createGain();   ambBus.gain.value=1;      ambBus.connect(duckGain);
+  sfxNode=actx.createGain();  sfxNode.gain.value=0.9;   sfxNode.connect(masterGain);
+  uiBus=actx.createGain();    uiBus.gain.value=0.45;    uiBus.connect(masterGain);
+}
+function duck(amount, hold){
+  if(!duckGain||!actx) return;
+  const t=actx.currentTime;
+  duckGain.gain.cancelScheduledValues(t);
+  duckGain.gain.setTargetAtTime(amount||0.45, t, 0.03);
+  duckGain.gain.setTargetAtTime(1, t+(hold||0.3), 0.4);
+}
 function ensureAudio(){
   if(!actx){
     try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(err){ actx=null; }
   }
   if(actx && actx.state==='suspended') actx.resume();
+  buildAudioGraph();
   startAmbience();
+}
+/* One synth primitive with a real ADSR and a filter envelope, replacing beep()'s bare
+   attack-decay pluck. Plucks open then close; pads breathe. */
+function voice(o){
+  if(!actx || S.muted) return;
+  buildAudioGraph();
+  o=o||{};
+  const t0=actx.currentTime+(o.delay||0);
+  const dur=o.dur!==undefined?o.dur:0.15;
+  const peak=o.peak!==undefined?o.peak:0.10;
+  const bus=o.bus||sfxNode||masterGain;
+  if(!bus) return;
+  const f=o.freq||440;
+  const osc=actx.createOscillator(); osc.type=o.type||'triangle';
+  osc.frequency.setValueAtTime(f,t0);
+  if(o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,o.glide), t0+dur);
+  const osc2=actx.createOscillator(); osc2.type=o.type||'triangle';
+  osc2.frequency.setValueAtTime(f*(1+(o.detune!==undefined?o.detune:5)/1200), t0);
+  const g2=actx.createGain(); g2.gain.value=0.4;
+  const filt=actx.createBiquadFilter(); filt.type='lowpass';
+  const cut=o.cutoff!==undefined?o.cutoff:2400;
+  filt.frequency.setValueAtTime(cut,t0); filt.Q.value=o.q!==undefined?o.q:0.7;
+  if(o.cutEnv) filt.frequency.setTargetAtTime(Math.max(120,cut*(1-o.cutEnv)), t0+0.01, Math.max(0.02,dur*0.5));
+  const g=actx.createGain();
+  const a=o.a!==undefined?o.a:0.008, d=o.d!==undefined?o.d:0.08,
+        s=o.s!==undefined?o.s:0.4,   r=o.r!==undefined?o.r:0.16;
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(peak,t0+a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002,peak*s), t0+a+d);
+  g.gain.setValueAtTime(Math.max(0.0002,peak*s), t0+Math.max(a+d,dur));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+Math.max(a+d,dur)+r);
+  let tail=g;
+  if(o.pan && actx.createStereoPanner){
+    const p=actx.createStereoPanner(); p.pan.value=clamp(o.pan,-1,1);
+    g.connect(p); tail=p;
+  }
+  osc.connect(filt); osc2.connect(g2); g2.connect(filt); filt.connect(g);
+  tail.connect(bus);
+  if(revNode && o.rev){ const rs=actx.createGain(); rs.gain.value=o.rev; tail.connect(rs); rs.connect(revNode); }
+  const stop=t0+Math.max(a+d,dur)+r+0.05;
+  osc.start(t0); osc2.start(t0); osc.stop(stop); osc2.stop(stop);
+}
+/* The isometric world finally has a left and a right. */
+function panForTile(x,z){
+  if(typeof tileToScreen!=='function' || !renderer) return 0;
+  const p=tileToScreen(x,z), w=renderer.domElement.clientWidth||1440;
+  return clamp((p.x/w)*2-1,-1,1)*0.65;
 }
 let _amb=null;
 function startAmbience(){
@@ -3932,7 +5474,9 @@ function startAmbience(){
 }
 function updateAmbience(){
   if(!_amb||!actx) return;
-  const target = S.muted ? 0 : Math.min(0.032, (S.pop||0)/1400000);   // subtle, and truly quiet until the city is sizable
+  // Was capped at 0.032 and needed ~45,000 people to get there — the bed was inaudible in
+  // any city you'd actually play. Still subtle, but now present.
+  const target = S.muted ? 0 : Math.min(0.06, (S.pop||0)/90000);
   _amb.master.gain.setTargetAtTime(target, actx.currentTime, 1.5);
   natureAmbience();
 }
@@ -3993,18 +5537,14 @@ function sfxBus(){
   }
   return _sfxFilt;
 }
+/* beep() keeps its old signature so all ten existing SFX call sites are untouched, but is
+   now a thin shim over voice() — so every one of them gains a tail, space and stereo. */
+let sfxPan=0;                               // set by callers that know where the event happened
 function beep(f,d,type,vol,delay){
-  if(S.muted||!actx) return;
-  const t0=actx.currentTime+(delay||0);
-  const o=actx.createOscillator(), g=actx.createGain(), dst=sfxBus()||actx.destination;
-  o.type=type; o.frequency.value=f;
-  // a quiet detuned partial an octave up warms the tone without extra harshness
-  const o2=actx.createOscillator(), g2=actx.createGain();
-  o2.type='sine'; o2.frequency.value=f*2.01;
-  g.gain.setValueAtTime(0.0001,t0); g.gain.linearRampToValueAtTime(vol,t0+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t0+d);
-  g2.gain.setValueAtTime(0.0001,t0); g2.gain.linearRampToValueAtTime(vol*0.28,t0+0.012); g2.gain.exponentialRampToValueAtTime(0.0001,t0+d*0.8);
-  o.connect(g); g.connect(dst); o2.connect(g2); g2.connect(dst);
-  o.start(t0); o.stop(t0+d+0.05); o2.start(t0); o2.stop(t0+d+0.05);
+  voice({freq:f, dur:d, type:type, peak:vol, delay:delay, pan:sfxPan, rev:0.12, cutoff:2600, r:Math.max(0.08,d*0.9)});
+}
+function beepAt(x,z,f,d,type,vol,delay){    // world-anchored one-shot
+  voice({freq:f, dur:d, type:type, peak:vol, delay:delay, pan:panForTile(x,z), rev:0.14, cutoff:2600});
 }
 function sPlace(){ beep(520,0.07,'square',0.045); beep(720,0.07,'square',0.04,0.06); }
 function sDoze(){ beep(120,0.16,'sine',0.08); beep(75,0.2,'sine',0.05,0.03); }
@@ -4021,9 +5561,74 @@ function sRoad(){ beep(300,0.045,'square',0.03); }                              
 function sClick(){ beep(440,0.04,'triangle',0.03); beep(660,0.05,'triangle',0.025,0.03); }  // UI select
 function sElect(win){ if(win){ [523,659,784,1046].forEach((f,i)=>beep(f,0.18,'triangle',0.05,i*0.10)); } else { [392,330,262].forEach((f,i)=>beep(f,0.22,'sawtooth',0.05,i*0.13)); } }
 function sCash(){ beep(880,0.05,'sine',0.035); beep(1170,0.07,'sine',0.03,0.05); }   // income tick
+function sGameOver(){                       // distinct from a mere election loss
+  duck(0.2, 4.0);
+  [220,174.6,146.8].forEach((f,i)=>voice({freq:f, type:'sawtooth', dur:0.9, peak:0.07, a:0.02, d:0.4, s:0.5, r:1.6, cutoff:1400, rev:0.45, delay:i*0.42}));
+}
+function sOutage(){ voice({freq:320, glide:60, type:'sawtooth', dur:0.8, peak:0.06, a:0.01, d:0.3, s:0.4, r:0.3, cutoff:1800, cutEnv:0.8, rev:0.2}); }
+function sChime(up){ [0,1].forEach(i=>voice({freq:(up?[523,784]:[784,523])[i], type:'sine', dur:0.18, peak:0.04, r:0.3, rev:0.25, delay:i*0.09})); }
+function sSettle(x,z){                      // a building finishing: thud + shh + a rising blip
+  voice({freq:70, type:'sine', dur:0.16, peak:0.06, r:0.2, pan:panForTile(x,z)});
+  voice({freq:660, type:'triangle', dur:0.10, peak:0.03, r:0.2, pan:panForTile(x,z), rev:0.2, delay:0.06});
+}
+
+/* ---------- generative score ----------
+   Pentatonic over four chords is consonant by construction. Two things decide whether it
+   survives hour three, and both are here: REST PERIODS (it has to learn to stop) and a
+   cutoff that tracks approval, so the music audibly sours when the city turns on you. */
+const PENT=[0,3,5,7,10];
+const CHORDS=[[220,261.6,329.6],[174.6,220,261.6],[130.8,164.8,196],[196,246.9,293.7]];  // Am7 F C G
+let seqTimer=null, seqStep=0, seqNext=0, seqChord=0, seqResting=false, seqRestUntil=0;
+function scorePlay(step, delay){
+  const pop=S.pop||0, ch=CHORDS[seqChord];
+  const cutoff=700+(S.approval||50)*14;
+  if(step===0) for(const f of ch)
+    voice({freq:f, type:'triangle', dur:1.6, peak:0.05, a:1.0, d:0.6, s:0.7, r:2.0, cutoff:cutoff, q:0.6, bus:musicBus, rev:0.25, delay:delay});
+  if(pop>1500 && (step===0||step===8))
+    voice({freq:ch[0]/2, type:'sine', dur:0.5, peak:0.05, a:0.02, d:0.2, s:0.4, r:0.45, cutoff:520, bus:musicBus, delay:delay});
+  if(pop>6000 && Math.random()<0.22){
+    const night=nightT>0.5;
+    const semi=PENT[Math.floor(Math.random()*PENT.length)];
+    voice({freq:ch[0]*(night?2:1)*Math.pow(2,semi/12), type:night?'sine':'triangle',
+           dur:0.18, peak:0.042, a:0.005, d:0.10, s:0.15, r:night?0.9:0.35,
+           cutoff:2200, cutEnv:0.6, bus:musicBus, rev:night?0.4:0.18, delay:delay});
+  }
+}
+function scoreTick(){
+  if(!actx || S.muted || !musicBus) return;
+  const bpm=68+Math.min(24,(S._popRate||0)*2);
+  const sp8=(60/bpm)/2;
+  const now=actx.currentTime;
+  if(seqNext<now-0.5) seqNext=now+0.06;      // tab was throttled: jump forward, never machine-gun
+  while(seqNext < now+0.25){
+    if(seqResting){ if(now>seqRestUntil) seqResting=false; }
+    else if(seqStep===0 && Math.random()<0.07){ seqResting=true; seqRestUntil=now+60+Math.random()*60; }
+    if(!seqResting) scorePlay(seqStep, Math.max(0,seqNext-now));
+    seqStep=(seqStep+1)%16;
+    if(seqStep===0) seqChord=(seqChord+1)%CHORDS.length;
+    seqNext+=sp8;
+  }
+}
+function startScore(){
+  if(seqTimer || !actx) return;
+  seqNext=actx.currentTime+0.1;
+  seqTimer=setInterval(scoreTick, 100);
+}
+/* Ambience used to update only from updateTop(), so it froze during idle play. This is a
+   bug fix, not a feature. */
+let audioAcc=0;
+function updateAudio(dt){
+  if(!actx) return;
+  audioAcc+=dt;
+  if(audioAcc<0.25) return;
+  audioAcc=0;
+  if(typeof updateAmbience==='function') updateAmbience();
+  startScore();
+}
 sndBtn.addEventListener('click', ()=>{
   S.muted=!S.muted;
   sndBtn.textContent=S.muted?'\uD83D\uDD07':'\uD83D\uDD0A';
+  if(masterGain && actx) masterGain.gain.setTargetAtTime(S.muted?0:0.9, actx.currentTime, 0.05);
 });
 
 /* ---------- speed ---------- */
@@ -4047,18 +5652,69 @@ function showMilestoneModal(m){
   ov.querySelector('button').addEventListener('click',()=>{ ov.remove(); setSpeed(prev||1); });
 }
 /* ---- politics, made legible: what moves approval, where things lean, what to do ---- */
+
+/* THE approval formula. Previously copy-pasted into monthly() and updateTop(), where the
+   two copies had already drifted apart. Every reader goes through here now. */
+function computeApproval(){
+  const A=CFG.approval;
+  const _grace=clamp((S.pop||0)/1200,0.45,1);   // a young city forgives pollution & crime it can't yet afford to fix
+  const _estab=clamp((S.pop||0)/2500,0,1);      // an established city rewards steady, clean governance
+  const _stable=_estab*(clamp(1-clamp(S.polAvg||0,0,1)*1.4,0,1)*clamp(1-clamp(S.crimeAvg||0,0,1)*1.4,0,1))*11;
+  const _prosper=(S._buildOut||0)>0.85 ? ((S._buildOut-0.85)/0.15)*clamp(1-clamp(S.polAvg||0,0,1),0,1)*8 : 0;   // a full, clean metropolis is an achievement
+  return Math.round(clamp(A.base
+    + ((S.dem.res+S.dem.com+S.dem.ind)/3)*A.demand
+    + (7-(S.tax||0))*A.tax
+    - clamp(S.polAvg||0,0,1)*A.pollution*_grace
+    - clamp(S.crimeAvg||0,0,1)*A.crime*_grace
+    - Math.min(S.unpowered||0,12)*A.blackout
+    + ((S.green||0)-0.45)*A.green
+    + _stable + _prosper
+    - (S.leanGap||0)*A.leanGap
+    - Math.min((S.redMonths||0)*A.redPerMonth, A.redCap)
+    - (S.pol && S.pol.protests ? S.pol.protests.length*1.0 : 0)
+    - (S.pol && S.pol.scandal>0 ? 14 : 0)
+    - (typeof outOfStepGap==='function' ? outOfStepGap()*0.15 : 0)
+  , 0, 100));
+}
+
+/* The vote share needed to hold the seat. The HUD used to show 48+term*1.6 while the
+   ballot was actually counted at 43+min(term,5)*2.2 — it told the player the bar was
+   ~5 points scarier than it was, and never mentioned the incumbency bump on top. */
+function winThreshold(term){
+  const E=CFG.election;
+  return Math.round(E.barBase + Math.min(term||S.term||1, E.barTermCap)*E.barPerTerm);
+}
+
+/* The panel that explains your rating now uses the SAME coefficients the rating uses.
+   It previously ran its own numbers (-38 pollution vs -30·grace, etc) and omitted whole
+   terms, so it was a rough approximation of the thing it claimed to explain. */
 function approvalParts(){
+  const A=CFG.approval;
   const dem=(S.dem.res+S.dem.com+S.dem.ind)/3;
-  return [
-    {k:'Pollution',   v:-clamp(S.polAvg,0,1)*38},
-    {k:'Crime',       v:-clamp(S.crimeAvg,0,1)*34},
-    {k:(S.growPress||0)>=(S.restPress||0)?'Unmet demand':'Over-building', v:-(S.leanGap||0)*0.20},
-    {k:'Taxes',       v:(7-(S.tax||0))*2.4},
-    {k:'Power cuts',  v:-Math.min(S.unpowered||0,12)*1.5},
-    {k:'Unpaid bills', v:-Math.min((S.redMonths||0)*2.5,15)},
-    {k:'Green space', v:((S.green||0)-0.45)*16},
-    {k:'Demand met',  v:dem*0.18}
+  const _grace=clamp((S.pop||0)/1200,0.45,1);
+  const out=[
+    {k:'Pollution',   v:-clamp(S.polAvg,0,1)*A.pollution*_grace},
+    {k:'Crime',       v:-clamp(S.crimeAvg,0,1)*A.crime*_grace},
+    {k:(S.growPress||0)>=(S.restPress||0)?'Unmet demand':'Over-building', v:-(S.leanGap||0)*A.leanGap},
+    {k:'Taxes',       v:(7-(S.tax||0))*A.tax},
+    {k:'Power cuts',  v:-Math.min(S.unpowered||0,12)*A.blackout},
+    {k:'Unpaid bills', v:-Math.min((S.redMonths||0)*A.redPerMonth, A.redCap)},
+    {k:'Green space', v:((S.green||0)-0.45)*A.green},
+    {k:'Demand met',  v:dem*A.demand}
   ];
+  if(politicsOn() && S.pol){
+    if(S.pol.protests.length) out.push({k:'Protests', v:-S.pol.protests.length*1.0});
+    if(S.pol.scandal>0) out.push({k:'Scandal', v:-14});
+    const gap=outOfStepGap();
+    if(gap>0) out.push({k:'Out of step', v:-gap*0.15});   // the vestigial branch, finally emitted
+  }
+  return out;
+}
+/* Your RECORD (devLean, finally read) clashing with what the public currently wants. */
+function outOfStepGap(){
+  if(!politicsOn()) return 0;
+  const g=Math.abs((S.recordLean||0)-(S.popLean||0));
+  return g>45 ? (g-45) : 0;
 }
 function partDesc(k,v){
   switch(k){
@@ -4104,11 +5760,84 @@ function leanHTML(){
     +'</div>';
 }
 
+/* ---------- City Hall: ONE inbox ----------
+   Docket, courts, petitions and ballots share a single timeline with one visual grammar.
+   Five separate pending-pipelines was the design's process-overload problem; this is the fix. */
+function favBar(f){
+  const v=S.pol.fav[f]||0, pct=Math.abs(v)/2;   // -100..100 -> 0..50% each side
+  const col=v>=0?'#52c06a':'#e05a4e';
+  const fill=v>=0
+    ? '<div style="position:absolute;left:50%;top:0;bottom:0;width:'+pct+'%;background:'+col+';border-radius:0 5px 5px 0"></div>'
+    : '<div style="position:absolute;right:50%;top:0;bottom:0;width:'+pct+'%;background:'+col+';border-radius:5px 0 0 5px"></div>';
+  return '<div style="display:flex;align-items:center;gap:11px;margin:7px 0">'
+    +'<span style="flex:none;width:92px;font-size:12.5px;color:#cfdbe4">'+FACTION_NM[f]+'</span>'
+    +'<div style="flex:1;height:9px;position:relative;background:rgba(255,255,255,.05);border-radius:5px">'
+    +'<div style="position:absolute;left:50%;top:1px;bottom:1px;width:1px;background:rgba(255,255,255,.25)"></div>'+fill+'</div>'
+    +'<b style="flex:none;width:34px;text-align:right;font-size:11.5px;color:'+col+'">'+(v>0?'+':'')+Math.round(v)+'</b></div>';
+}
+function openCityHall(){
+  if(!started || !politicsOn()) return;
+  const prev=S.speedMul||1; setSpeed(0);
+  const ov=document.createElement('div'); ov.className='msModal';
+  ov.style.cssText='position:fixed;inset:0;z-index:46;background:rgba(5,9,13,.66);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(5px)';
+  let h='<div class="glass" style="max-width:460px;width:100%;padding:22px 24px;max-height:92vh;overflow:auto">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+    +'<div style="font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)">City Hall</div>'
+    +'<div style="font-size:13px;color:var(--amber);font-weight:800">⚖ '+(S.pol.pc||0)+'/'+pcCap()+'</div></div>';
+  h+='<div style="font-size:11.5px;color:var(--dim);margin-bottom:14px">Era '+era()+' · '+DISTRICTS.length+' districts · exposure <b style="color:'+((S.pol.graft||0)>2?'#e05a4e':(S.pol.graft>0?'#e0c33e':'var(--dim)'))+'">'+exposureLabel()+'</b></div>';
+
+  h+='<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:6px">Standing with the city</div>';
+  for(const f of FACTIONS) h+=favBar(f);
+
+  h+='<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin:16px 0 6px">The council</div>';
+  if(!S.pol.council.length) h+='<div style="color:var(--dim);font-size:12px">No council yet — it seats at your next election.</div>';
+  else h+='<div style="display:flex;gap:6px;flex-wrap:wrap">'+S.pol.council.map(s=>
+      '<div style="flex:1;min-width:78px;background:rgba(255,255,255,.05);border:1px solid var(--panel-line);border-radius:9px;padding:8px 9px">'
+      +'<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)">'+s.dist+'</div>'
+      +'<div style="font-size:12px;font-weight:800;color:#e7eef3">'+FACTION_NM[s.faction]+'</div>'
+      +'<div style="font-size:10px;color:var(--dim)">'+s.name+'</div></div>').join('')+'</div>';
+
+  const inbox=[];
+  for(const it of S.pol.docket){ const t=docketTally(it);
+    inbox.push({when:'Next month', what:docketLabel(it), note:'Projected '+t.yes+'/'+t.need+(t.worst?' · '+t.worst.dist+' ('+FACTION_NM[t.worst.faction]+') is against':''), it:it}); }
+  for(const cs of S.pol.court) inbox.push({when:cs.months+' mo', what:'Condemnation case in court', note:Math.round(cs.p*100)+'% chance the city wins · a loss protects the lot forever'});
+  for(const p of S.pol.protests) inbox.push({when:p.months+' mo', what:'Protest camp over '+p.cause, note:'Blocks building within one tile · −1 approval'});
+  h+='<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin:16px 0 6px">Pending</div>';
+  if(!inbox.length) h+='<div style="color:var(--dim);font-size:12px">Nothing before the council.</div>';
+  else h+=inbox.map((r,i)=>'<div style="background:rgba(255,255,255,.04);border:1px solid var(--panel-line);border-radius:9px;padding:9px 11px;margin:6px 0">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px"><b style="font-size:12.5px;color:#e7eef3">'+r.what+'</b><span style="font-size:10.5px;color:var(--dim);flex:none">'+r.when+'</span></div>'
+      +'<div style="font-size:11px;color:var(--dim);margin-top:3px">'+r.note+'</div>'
+      +(r.it?'<div style="display:flex;gap:6px;margin-top:7px">'
+        +'<button class="ghost chWhip" data-i="'+i+'" style="flex:1;font-size:11px;padding:5px" '+(pcHave(CFG.politics.pcCost.whip)?'':'disabled')+'>Whip a seat — '+CFG.politics.pcCost.whip+'⚖</button>'
+        +'<button class="ghost chFix" data-i="'+i+'" style="flex:1;font-size:11px;padding:5px">Guarantee it quietly</button></div>':'')
+      +'</div>').join('');
+
+  h+='<button class="cta" id="chDone" style="margin-top:18px;width:100%">Done</button></div>';
+  ov.innerHTML=h;
+  document.body.appendChild(ov);
+  ov.querySelectorAll('.chWhip').forEach(b=>b.addEventListener('click',()=>{
+    const r=inbox[+b.dataset.i]; if(!r||!r.it) return;
+    if(!pcSpend(CFG.politics.pcCost.whip)) return;
+    const t=docketTally(r.it);
+    if(t.worst) r.it.whip[t.worst.dist]=true;
+    ov.remove(); setSpeed(prev); openCityHall();
+  }));
+  ov.querySelectorAll('.chFix').forEach(b=>b.addEventListener('click',()=>{
+    const r=inbox[+b.dataset.i]; if(!r||!r.it) return;
+    const t=docketTally(r.it);
+    if(t.worst) r.it.whip[t.worst.dist]=true;
+    addGraft(2);                                    // the tempting shortcut, with compound interest
+    toast('A quiet word is had. Nobody writes it down.','good');
+    ov.remove(); setSpeed(prev); openCityHall();
+  }));
+  ov.querySelector('#chDone').addEventListener('click',()=>{ ov.remove(); setSpeed(prev); });
+}
+
 function openApproval(){
   if(!started) return;
-  const _ap=S.approval||0, _bar=Math.round(48+((S.term||1)*1.6)), _mg=_ap-_bar;
+  const _ap=S.approval||0, _bar=winThreshold(S.term), _mg=_ap-_bar;
   const _col=_mg>=10?'#52c06a':_mg>=3?'#9acd32':_mg>=0?'#e0c33e':_mg>=-6?'#e08a3e':'#e05a4e';
-  const _ay=S.nextElectionYear||(S.year+4), _live=(S.pop||0)>=50;
+  const _ay=S.nextElectionYear||(S.year+CFG.election.termYears), _live=(S.pop||0)>=50;
   const ov=document.createElement('div'); ov.id='apprModal';
   ov.style.cssText='position:fixed;inset:0;z-index:46;background:rgba(5,9,13,.62);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(4px)';
   let h='<div class="glass" style="max-width:380px;width:100%;padding:22px 24px">';
@@ -4188,11 +5917,22 @@ function politicsAdvice(){
 function runElection(){
   if(document.querySelector('.msModal')) return;
   const prev=S.speedMul||1; setSpeed(0);
-  S.nextElectionYear=S.year+4;
+  const E=CFG.election;
+  S.nextElectionYear=S.year+E.termYears;
   const term=S.term||1;
-  const bar=Math.round(43 + Math.min(term,5)*2.2);           // expectations climb early, then plateau — a long reign stays winnable
-  const swing=(Math.random()*8-3);                          // campaign noise, slightly incumbent-friendly
-  const score=Math.round(clamp((S.approval||0) + swing + 4, 0, 100));   // incumbency bump: sitting mayors have an edge
+  const bar=winThreshold(term);                             // expectations climb early, then plateau — a long reign stays winnable
+  // Elections become the sum of four relationships the player managed for years, not a
+  // blind dice roll. Era re-weights: Growth counts in a boomtown, Neighbours in a metropolis.
+  let facSwing=0;
+  if(politicsOn() && S.pol){
+    const w = era()>=4 ? {growth:0.8, neighbors:1.5, greens:1.0, labor:0.9}
+                       : {growth:1.3, neighbors:0.9, greens:0.8, labor:1.0};
+    let sum=0, tot=0;
+    for(const f of FACTIONS){ sum+=(S.pol.fav[f]||0)*w[f]; tot+=w[f]; }
+    facSwing=clamp(sum/(100*tot)*6, -6, 6);
+  }
+  const swing=facSwing + (Math.random()*4-2);   // relationships, plus campaign noise
+  const score=Math.round(clamp((S.approval||0) + swing + E.incumbency, 0, 100));   // incumbency bump: sitting mayors have an edge
   const won=score>=bar;
   const recall=!won && !((S.strikes||0)>0);
   if(typeof sElect==='function') sElect(won);   // first defeat buys a two-year probation term
@@ -4225,7 +5965,7 @@ function runElection(){
     if((term+1)>=5) h+='<div style="margin-top:12px;font-size:12.5px;color:#6fd08a">Five terms &mdash; '+S.cityName+' will remember you as a legend.</div>';
     h+='<button class="cta" id="elGo" style="margin-top:16px;width:100%">Accept the mandate</button>';
   } else if(recall){
-    h+='<div style="margin-top:12px;padding:10px 13px;background:rgba(224,167,90,.10);border:1px solid rgba(224,167,90,.35);border-radius:10px;font-size:12px;line-height:1.5;text-align:left">The council keeps you on for a <b>two-year probation term</b> \u2014 transition costs take a bite from the treasury.<br><b>Lose the next election and you\u2019re finished.</b></div>';
+    h+='<div style="margin-top:12px;padding:10px 13px;background:rgba(224,167,90,.10);border:1px solid rgba(224,167,90,.35);border-radius:10px;font-size:12px;line-height:1.5;text-align:left">The council keeps you on for a <b>'+E.probationYears+'-year probation term</b> \u2014 transition costs take a bite from the treasury.<br><b>Lose the next election and you\u2019re finished.</b></div>';
     h+='<button class="cta" id="elGo" style="margin-top:16px;width:100%">Serve the recall term</button>';
   } else {
     h+='<div style="margin-top:12px;padding:10px 13px;background:rgba(224,90,78,.10);border:1px solid rgba(224,90,78,.3);border-radius:10px;font-size:12px;line-height:1.5">Two straight defeats. After '+(S.year-2000)+' years in office, '+S.cityName+' has chosen someone new.<br>Peak population <b>'+(S.peakPop||S.pop).toLocaleString()+'</b> &middot; terms served <b>'+term+'</b>.</div>';
@@ -4234,14 +5974,15 @@ function runElection(){
   h+='</div>';
   ov.innerHTML=h;
   document.body.appendChild(ov);
+  if(politicsOn()){ reseatCouncil(); S.pol.pc=Math.min(pcCap(),(S.pol.pc||0)+(won?3:0)); S.pol.recallPending=false; }
   if(won){
     S.term=term+1; S.electionsWon=(S.electionsWon||0)+1; S.votedOut=false; S.strikes=0;
     if(typeof sMilestone==='function') sMilestone();
     ov.querySelector('#elGo').addEventListener('click',()=>{ ov.remove(); setSpeed(prev||1); });
   } else if(recall){
     S.strikes=1; S.term=term+1;
-    S.money-=Math.round(Math.max(0,S.money)*0.15);            // the recall campaign and staff turnover aren't free
-    S.nextElectionYear=S.year+2;                              // shortened probation term
+    S.money-=Math.round(Math.max(0,S.money)*E.recallSeizure);  // the recall campaign and staff turnover aren't free
+    S.nextElectionYear=S.year+E.probationYears;                // shortened probation term
     ov.querySelector('#elGo').addEventListener('click',()=>{ ov.remove(); setSpeed(prev||1); });
   } else {
     S.votedOut=true;                                          // two strikes: the only way on is a fresh city
@@ -4251,6 +5992,7 @@ function runElection(){
 
 function cityFailed(){
   setSpeed(0);
+  if(typeof sGameOver==='function') sGameOver();
   const ov=document.createElement('div'); ov.className='msModal';
   ov.style.cssText='position:fixed;inset:0;z-index:47;background:rgba(5,9,13,.78);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(6px)';
   let h='<div class="glass" style="max-width:420px;width:100%;padding:24px;text-align:center">';
@@ -4359,6 +6101,117 @@ $('circleNo').addEventListener('click', e=>{ e.stopPropagation(); hideCirclePopu
 canvasEl.addEventListener('pointerdown', hideCirclePopup);
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') hideCirclePopup(); });
 
+/* ============================== ANCHORED CHIPS & MARKERS ==============================
+   #circlePopup above proves the anchoring math and nothing else: one fixed element,
+   positioned once at show time, dismissed by any canvas pointerdown. Politics needs chips
+   that pin to a tile, follow the camera, carry arbitrary buttons, and persist until the
+   player resolves them.
+
+   v1 rule: exactly ONE chip open at a time — opening another swaps it. That single
+   constraint removes z-ordering, clutter and small-screen layout problems at a stroke.
+
+   Phase 2 drives this: the holdout chip ("Ada Merced won't sell") with its four exits, the
+   petition card, the protest notice. Nothing here knows about politics — it's just plumbing. */
+const chipLayerEl=$('chipLayer');
+let activeChip=null;                                    // {x, z, el, onClose}
+
+function closeChip(silent){
+  if(!activeChip) return;
+  const c=activeChip; activeChip=null;
+  c.el.remove();
+  if(!silent && typeof c.onClose==='function') c.onClose();
+}
+
+/* openChip({x, z, title, sub, body, closable, onClose,
+             buttons:[{label, why, primary, disabled, onClick(ctx)}]}) -> {close, el}
+   onClick receives {close} so a handler can dismiss without knowing chip internals. */
+function openChip(opts){
+  closeChip(true);
+  const el=document.createElement('div');
+  el.className='mapChip glass';
+  const h=[];
+  if(opts.closable!==false) h.push('<div class="cclose" title="Dismiss">×</div>');
+  if(opts.title) h.push('<div class="ctitle">'+opts.title+'</div>');
+  if(opts.sub)   h.push('<div class="csub">'+opts.sub+'</div>');
+  if(opts.body)  h.push('<div class="cbody">'+opts.body+'</div>');
+  const btns=opts.buttons||[];
+  if(btns.length){
+    h.push('<div class="cbtns">');
+    btns.forEach((b,i)=>h.push('<button class="cbtn'+(b.primary?' primary':'')+'" data-ci="'+i+'"'+(b.disabled?' disabled':'')+'>'
+      +b.label+(b.why?'<span class="cwhy">'+b.why+'</span>':'')+'</button>'));
+    h.push('</div>');
+  }
+  el.innerHTML=h.join('');
+  el.addEventListener('pointerdown', e=>e.stopPropagation());   // never falls through to the canvas
+  const cl=el.querySelector('.cclose');
+  if(cl) cl.addEventListener('click', ()=>closeChip());
+  el.querySelectorAll('.cbtn').forEach(b=>b.addEventListener('click', ()=>{
+    const spec=btns[+b.dataset.ci];
+    if(!spec || spec.disabled) return;
+    if(typeof spec.onClick==='function') spec.onClick({close:()=>closeChip(true)});
+  }));
+  chipLayerEl.appendChild(el);
+  activeChip={x:opts.x, z:opts.z, el:el, onClose:opts.onClose};
+  positionChip();
+  requestAnimationFrame(()=>el.classList.add('show'));
+  return {close:()=>closeChip(true), el:el};
+}
+
+/* Glues the open chip to its tile as the camera pans, zooms and rotates — one project()
+   per frame. Hides it when the tile leaves the viewport rather than letting it pile up
+   against the screen edge. */
+function positionChip(){
+  if(!activeChip) return;
+  const p=tileToScreen(activeChip.x, activeChip.z);
+  const r=renderer.domElement;
+  const off = p.x<-80 || p.y<-80 || p.x>r.clientWidth+80 || p.y>r.clientHeight+80;
+  activeChip.el.style.display = off ? 'none' : 'block';
+  if(off) return;
+  activeChip.el.style.left=Math.round(p.x)+'px';
+  activeChip.el.style.top =Math.round(p.y)+'px';
+}
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') closeChip(); });
+
+/* ---------- tile markers ----------
+   Small world-space meshes flagging a tile as politically live (a refusal, a pending vote).
+   One registry so loadCity can rebuild them in its mesh pass and setView can hide them. */
+const markers=new Map();                                // idx -> {mesh, kind}
+const MARKER_KINDS={
+  picket: {post:'#b9a179', board:'#f2e8d5'},
+  notice: {post:'#8a9bb0', board:'#dce6f0'}
+};
+function makeMarkerMesh(x,z,kind){
+  const k=MARKER_KINDS[kind]||MARKER_KINDS.picket;
+  const m=new THREE.Mesh(buildGeo([
+    {k:'box', w:0.075, d:0.075, h:0.92, y:0,    c:k.post},
+    {k:'box', w:0.66,  d:0.06,  h:0.40, y:0.60, c:k.board}
+  ]), buildingMat);
+  m.position.set(tileCX(x), 0, tileCZ(z));
+  m.rotation.y=Math.PI*0.13;                            // a little askew — hand-planted, not surveyed
+  m.castShadow=true;
+  return m;
+}
+function addMarker(x,z,kind,animate){
+  removeMarker(x,z);
+  const mesh=makeMarkerMesh(x,z,kind||'picket');
+  mesh.visible=!S.view;
+  if(animate!==false){ mesh.scale.y=0.01; constructionAnims.push({mesh:mesh, s:0}); }
+  scene.add(mesh);
+  markers.set(idx(x,z), {mesh:mesh, kind:kind||'picket'});
+  return mesh;
+}
+function removeMarker(x,z){
+  const i=idx(x,z), m=markers.get(i);
+  if(!m) return;
+  scene.remove(m.mesh); m.mesh.geometry.dispose();
+  markers.delete(i);
+}
+function clearMarkers(){
+  for(const m of markers.values()){ scene.remove(m.mesh); m.mesh.geometry.dispose(); }
+  markers.clear();
+}
+function setMarkersVisible(v){ for(const m of markers.values()) m.mesh.visible=v; }
+
 /* ---------- budget & taxes ---------- */
 function bRow(l,v){ return '<div style="display:flex;justify-content:space-between;gap:18px;margin:2px 0"><span style="color:var(--dim)">'+l+'</span><b style="font-variant-numeric:tabular-nums">'+v+'</b></div>'; }
 function openBudget(){
@@ -4388,9 +6241,38 @@ function openBudget(){
         +bRow('Congestion','\u2212'+fm(Math.round(f.exp.congestion||0)))
         +bRow('Welfare &amp; unrest','\u2212'+fm(Math.round(f.exp.welfare||0)))
         +((f.exp.interest||0)>0?bRow('Debt interest','\u2212'+fm(Math.round(f.exp.interest))):'')
+        +((f.exp.bonds||0)>0?bRow('Bond interest','\u2212'+fm(Math.round(f.exp.bonds))):'')
+        +((f.exp.imports||0)>0?bRow('Imported materials','\u2212'+fm(Math.round(f.exp.imports))):'')
         +'<div style="border-top:1px solid rgba(255,255,255,.12);margin:7px 0"></div>'
         +bRow('Net',(f.net>=0?'+':'\u2212')+fm(Math.abs(Math.round(f.net))))
       : '<div style="color:var(--dim)">First fiscal report arrives at month\u2019s end.</div>')
+    +(CFG.materials.enabled
+      ? '<h2 style="margin-top:16px">Materials</h2>'
+        +'<div style="color:var(--dim);font-size:11.5px;margin-bottom:6px">Local industry is a discount on growth. What it can\u2019t supply is imported at \u00a7'+CFG.materials.importPrice+'/unit.</div>'
+        +bRow('In stock',Math.round(S.mat||0)+' units')
+        +bRow('Produced locally',Math.round((S.occI||0)*CFG.materials.perOccI)+' / month')
+        +bRow('Imported last month',(S._impUnits||0)+' units')
+      : '')
+    +(CFG.bonds.enabled
+      ? '<h2 style="margin-top:16px">Bonds</h2>'
+        +bRow('Rating','<b style="color:'+(bondRating()==='A'?'#52c06a':bondRating()==='B'?'#e0c33e':'#e05a4e')+'">'+bondRating()+'</b>')
+        +bRow('Principal',fm(S.bonds.principal||0))
+        +bRow('Ceiling',fm(bondCeiling()))
+        +'<div style="display:flex;gap:8px;margin-top:9px">'
+        +'<button class="ghost" id="bondIssue" style="flex:1">Issue '+fm(CFG.bonds.block)+'</button>'
+        +'<button class="ghost" id="bondRepay" style="flex:1">Repay '+fm(CFG.bonds.block)+'</button>'
+        +'</div>'
+        +'<div style="color:var(--dim);font-size:10.5px;margin-top:5px">Milestones raise the ceiling, not the treasury. Rating C blocks new issues.</div>'
+      : '')
+    +(CFG.pool.enabled
+      ? '<h2 style="margin-top:16px">Growth</h2>'
+        +bRow('Families waiting',Math.round((S.pool&&S.pool.res)||0))
+        +bRow('Monthly appeal',attractTotal().toFixed(2)+'\u00d7')
+        +((S.marketing||0)>0
+          ? '<div style="color:#7fdc8e;font-size:11.5px;margin-top:7px">Marketing campaign running \u2014 '+S.marketing+' months left</div>'
+          : '<button class="ghost" id="mktBtn" style="width:100%;margin-top:8px">Regional marketing campaign \u2014 '+fm(CFG.pool.marketingCost)+'</button>'
+            +'<div style="color:var(--dim);font-size:10.5px;margin-top:4px">+'+Math.round(CFG.pool.marketingBoost*100)+'% arrivals for '+CFG.pool.marketingMonths+' months. The answer to a recession.</div>')
+      : '')
     +'<h2 style="margin-top:16px">City health</h2>'
     +bRow('Crime',Math.round(S.crimeAvg*100)+' / 100')
     +bRow('Pollution',Math.round(S.polAvg*100)+' / 100')
@@ -4406,35 +6288,187 @@ function openBudget(){
     recalcDemand(); updateTop(); setProj();
   });
   $('bdClose').addEventListener('click', ()=>overlayEl.classList.remove('show'));
+  const _bi=$('bondIssue'); if(_bi) _bi.addEventListener('click', ()=>{ issueBond(); updateTop(); });
+  const _br=$('bondRepay'); if(_br) _br.addEventListener('click', ()=>{ repayBond(); updateTop(); });
+  const _mk=$('mktBtn'); if(_mk) _mk.addEventListener('click', ()=>{
+    if(!tryCharge(CFG.pool.marketingCost)) return;
+    S.marketing=CFG.pool.marketingMonths;
+    toast('📣 Marketing campaign launched — arrivals up '+Math.round(CFG.pool.marketingBoost*100)+'% for '+S.marketing+' months','good');
+    updateTop(); openBudget();
+  });
 }
 budgetBtn.addEventListener('click', ()=>{ if(started) openBudget(); });
+(function(){ const b=$('hallBtn'); if(b) b.addEventListener('click', ()=>openCityHall()); })();
 
-/* ---------- day / night ---------- */
-let nightT=0, nightTgt=0;
-const DAYC={bg:new THREE.Color(0xa9d2ec), sky:new THREE.Color(0xd7ecff), gnd:new THREE.Color(0x6b7d5a), sun:new THREE.Color(0xfff2d8), em:new THREE.Color(0x000000)};
-const NITC={bg:new THREE.Color(0x101a2e), sky:new THREE.Color(0x2c3a55), gnd:new THREE.Color(0x1c2230), sun:new THREE.Color(0x9db8ff), em:new THREE.Color(0x553d12)};
-function applyNight(){
-  scene.background.copy(DAYC.bg).lerp(NITC.bg, nightT);
-  if(scene.fog) scene.fog.color.copy(scene.background);
-  hemi.color.copy(DAYC.sky).lerp(NITC.sky, nightT);
-  hemi.groundColor.copy(DAYC.gnd).lerp(NITC.gnd, nightT);
-  hemi.intensity=lerp(0.85, 0.45, nightT);
-  sun.intensity=lerp(0.95, 0.16, nightT);
-  sun.color.copy(DAYC.sun).lerp(NITC.sun, nightT);
-  buildingMat.emissive.copy(DAYC.em).lerp(NITC.em, nightT);   // warm window glow
+/* ============================== TIME OF DAY ==============================
+   A sun that actually moves: dawn gold, hard noon, long amber golden-hour shadows, a blue
+   moonlit night. Replaces the binary toggle that lerped two colour sets while the light
+   itself never moved.
+
+   Three rules learned the hard way:
+     1. The clock runs on REAL time, never scaled by speedMul \u2014 at 5x a speed-scaled cycle
+        becomes a 24-second strobe day you can't read the map through.
+     2. Shadow-casting elevation is clamped: at 8 degrees a 2048 map can't resolve shadows
+        and you get acne and stretched texels. Dawn and dusk are painted with colour, not
+        with a shadow pass that can't hold up.
+     3. Data views force neutral daylight. Nobody reads a pollution heatmap by moonlight. */
+const DAY_S = 600;                      // one full cycle per 10 real minutes
+let todT = 9.5;                         // hours, 0..24
+let todLock = null;                     // null = running clock; otherwise a pinned hour
+let todAcc = 0, todLastView = null;
+let nightT = 0, nightTgt = 0;           // derived \u2014 kept so clouds/lights/ambience still work
+
+const TOD_KEYS=[
+  {t:0,    elev:-14, azim:300, sun:0x2a3a6b, si:0.00, sky:0x18233d, gnd:0x161c28, hemi:0.30, bg:0x0d1526, glow:1.00},
+  {t:5.0,  elev:-6,  azim:308, sun:0x4a5a8f, si:0.05, sky:0x2b3a5c, gnd:0x1e2530, hemi:0.38, bg:0x18233e, glow:0.90},
+  {t:6.5,  elev:8,   azim:318, sun:0xffb37a, si:0.62, sky:0x9fb6d8, gnd:0x4d5647, hemi:0.62, bg:0x8fa9c8, glow:0.45},
+  {t:9.0,  elev:34,  azim:340, sun:0xffe3bd, si:0.95, sky:0xcfe4fb, gnd:0x66785a, hemi:0.80, bg:0xa2cbe8, glow:0.05},
+  {t:13.0, elev:62,  azim:20,  sun:0xfff2d8, si:1.15, sky:0xd7ecff, gnd:0x6b7d5a, hemi:0.88, bg:0xa9d2ec, glow:0.00},
+  {t:17.5, elev:14,  azim:56,  sun:0xffab52, si:0.92, sky:0xf0d7c0, gnd:0x6a6a4a, hemi:0.70, bg:0xd9c0a8, glow:0.10},  // the money shot
+  {t:19.5, elev:2,   azim:70,  sun:0xff7d5e, si:0.34, sky:0x8a7f96, gnd:0x3a3a44, hemi:0.50, bg:0x7a6f86, glow:0.55},
+  {t:21.0, elev:-8,  azim:80,  sun:0x9db8ff, si:0.14, sky:0x2c3a55, gnd:0x1c2230, hemi:0.40, bg:0x101a2e, glow:0.95},
+  {t:24.0, elev:-14, azim:300, sun:0x2a3a6b, si:0.00, sky:0x18233d, gnd:0x161c28, hemi:0.30, bg:0x0d1526, glow:1.00}
+];
+const _cA=new THREE.Color(), _cB=new THREE.Color();
+function todSample(h){
+  let a=TOD_KEYS[0], b=TOD_KEYS[TOD_KEYS.length-1];
+  for(let i=0;i<TOD_KEYS.length-1;i++){ if(h>=TOD_KEYS[i].t && h<=TOD_KEYS[i+1].t){ a=TOD_KEYS[i]; b=TOD_KEYS[i+1]; break; } }
+  const span=Math.max(0.0001, b.t-a.t);
+  const k=smooth(clamp((h-a.t)/span, 0, 1));
+  return {
+    elev: lerp(a.elev,b.elev,k), azim: lerp(a.azim,b.azim,k),
+    si: lerp(a.si,b.si,k), hemi: lerp(a.hemi,b.hemi,k), glow: lerp(a.glow,b.glow,k),
+    sun:_cA.setHex(a.sun).lerp(_cB.setHex(b.sun),k).clone(),
+    sky:_cA.setHex(a.sky).lerp(_cB.setHex(b.sky),k).clone(),
+    gnd:_cA.setHex(a.gnd).lerp(_cB.setHex(b.gnd),k).clone(),
+    bg: _cA.setHex(a.bg ).lerp(_cB.setHex(b.bg ),k).clone()
+  };
 }
-function toggleNight(){
-  nightTgt=nightTgt?0:1;
-  nightBtn.textContent=nightTgt?'\u2600\uFE0F':'\uD83C\uDF19';
-  nightBtn.dataset.tip=nightTgt?'Back to day (N)':'Day / night (N)';
+function applyTod(){
+  // Data views get flat neutral daylight so heatmaps stay readable.
+  const h = S.view ? 13.0 : (todLock!==null ? todLock : todT);
+  const k = todSample(h);
+  const elevR=k.elev*Math.PI/180, azimR=k.azim*Math.PI/180;
+  // Clamp the SHADOW elevation without clamping the look: below ~15 degrees the shadow map
+  // can't resolve, so keep the light high enough to stay clean while colour sells the hour.
+  const se=Math.max(15, k.elev)*Math.PI/180;
+  sun.position.set(Math.cos(se)*Math.sin(azimR), Math.sin(se), Math.cos(se)*Math.cos(azimR)).multiplyScalar(150);
+  sun.color.copy(k.sun);
+  sun.intensity=k.si;
+  sun.castShadow = k.elev > 2;
+  hemi.color.copy(k.sky); hemi.groundColor.copy(k.gnd); hemi.intensity=k.hemi;
+  scene.background.copy(k.bg);
+  if(scene.fog) scene.fog.color.copy(k.bg);
+  buildingMat.emissive.setHex(0x553d12).multiplyScalar(k.glow);   // warm windows wake at dusk
+  nightT=clamp(k.glow,0,1); nightTgt=nightT;                      // derived, for the old consumers
+  if(typeof fillLight!=='undefined') fillLight.intensity=lerp(0.26,0.10,nightT);
 }
-nightBtn.addEventListener('click', ()=>{ toggleNight(); });
+function applyNight(){ applyTod(); }                              // legacy entry point
+const TOD_PRESETS=[
+  {nm:'Running clock', h:null, ic:'\uD83D\uDD51'},
+  {nm:'Noon',          h:13.0, ic:'\u2600\uFE0F'},
+  {nm:'Golden hour',   h:17.5, ic:'\uD83C\uDF07'},
+  {nm:'Night',         h:22.0, ic:'\uD83C\uDF19'}
+];
+let todPreset=0;
+function cycleTod(){
+  todPreset=(todPreset+1)%TOD_PRESETS.length;
+  const p=TOD_PRESETS[todPreset];
+  todLock=p.h;
+  if(p.h!==null) todT=p.h;
+  nightBtn.textContent=p.ic;
+  nightBtn.dataset.tip=p.nm+' (N)';
+  toast(p.ic+' '+p.nm, 'good');
+  applyTod();
+}
+function toggleNight(){ cycleTod(); }                             // keeps the N key working
+nightBtn.addEventListener('click', ()=>{ cycleTod(); });
 { const _ts=document.getElementById('tutSkip'); if(_ts) _ts.addEventListener('click', function(){ S.tutDone=1; const e=document.getElementById('tut'); if(e) e.style.display='none'; }); }
+
+/* ---------- night glow ----------
+   Real threshold bloom is broken on r128: tone mapping is compiled into materials even for
+   render-target passes, so nothing ever exceeds 1.0 and a threshold-1.0 bright pass selects
+   black. This additive sprite halo gets most of the night shot for ~25 lines. */
+let glowSprites=null, glowTex=null;
+function makeGlowTex(){
+  const c=document.createElement('canvas'); c.width=c.height=64;
+  const g=c.getContext('2d');
+  const rg=g.createRadialGradient(32,32,0,32,32,32);
+  rg.addColorStop(0,'rgba(255,226,160,0.95)');
+  rg.addColorStop(0.35,'rgba(255,200,120,0.35)');
+  rg.addColorStop(1,'rgba(255,190,110,0)');
+  g.fillStyle=rg; g.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+function updateGlow(){
+  if(nightT<0.06){ if(glowSprites) glowSprites.visible=false; return; }
+  if(!glowTex) glowTex=makeGlowTex();
+  if(!glowSprites){
+    const geo=new THREE.BufferGeometry();
+    glowSprites=new THREE.Points(geo, new THREE.PointsMaterial({
+      map:glowTex, size:2.6, transparent:true, depthWrite:false,
+      blending:THREE.AdditiveBlending, sizeAttenuation:true, opacity:0.0
+    }));
+    scene.add(glowSprites);
+  }
+  glowSprites.visible=!S.view;
+  glowSprites.material.opacity=nightT*0.55;
+  if(glowDirty){
+    glowDirty=false;
+    const pos=[];
+    for(let i=0;i<N*N;i++){
+      const c=grid[i];
+      if(c.level<1) continue;
+      if(!(c.type==='res'||c.type==='com'||c.type==='office'||c.type==='mix')) continue;
+      const x=i%N, z=(i/N)|0;
+      pos.push(tileCX(x), 0.6+c.level*0.45, tileCZ(z));
+    }
+    glowSprites.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  }
+}
+let glowDirty=true;
+
+/* ---------- photo mode ----------
+   The whole presentation track is secretly about screenshots; this is the button for it. */
+function photoMode(){
+  if(!started) return;
+  const r=renderer.domElement;
+  clearOverlay();
+  renderer.render(scene,camera);                 // preserveDrawingBuffer is false: capture in the same task
+  const w=Math.min(1280,r.width), h=Math.round(w*(r.height/r.width));
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h+54;
+  const g=cv.getContext('2d');
+  g.fillStyle='#0b1118'; g.fillRect(0,0,cv.width,cv.height);
+  g.drawImage(r,0,0,r.width,r.height,0,0,w,h);
+  g.fillStyle='#0b1118'; g.fillRect(0,h,w,54);
+  g.fillStyle='#ffc34d'; g.font='700 22px ui-sans-serif, system-ui, sans-serif';
+  g.fillText('Greetings from '+S.cityName, 18, h+34);
+  g.fillStyle='#93a7b4'; g.font='500 15px ui-sans-serif, system-ui, sans-serif';
+  const cap='pop. '+(S.pop||0).toLocaleString()+' · '+MONTHS[S.month]+' '+S.year;
+  g.fillText(cap, w-18-g.measureText(cap).width, h+34);
+  try{
+    const a=document.createElement('a');
+    a.href=cv.toDataURL('image/png');
+    a.download=(S.cityName||'isopolis').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+S.year+'.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    if(typeof sChime==='function') sChime(true);
+    toast('📷 Postcard saved','good');
+  }catch(e){ toast('Could not save the postcard','bad'); }
+  hoverPreview(hoverT);
+}
 
 /* ---------- save / load ---------- */
 const TYPE_CODE={empty:0,road:1,res:2,com:3,ind:4,mix:5,park:6,power:7,rubble:8,police:9,fire:10,elementary:11,highschool:12,college:13,farm:14,office:15,clinic:16,preserve:17};
 const CODE_TYPE=['empty','road','res','com','ind','mix','park','power','rubble','police','fire','elementary','highschool','college','farm','office','clinic','preserve'];
-function saveCity(){
+/* SAVE FORMAT — v3.
+   Two hard rules inherited from v1/v2, both load-bearing:
+     1. The per-cell array is POSITIONAL and APPEND-ONLY. Never reorder, never insert.
+        It currently holds indices 0-10; Phase 2 appends age at 11 and landmark at 12.
+     2. New systems serialize as NEW TOP-LEVEL KEYS. The loader ignores unknown keys, so
+        this is the safe extension point — Phase 1-3 add theirs here.
+   TypedArrays must go through Array.from(): a raw Uint8Array JSON-stringifies as {"0":1,...}. */
+const SAVE_V = 3;
+function buildSave(){
   const cells=grid.map(c=>[
     c.terrain==='water'?1:0,
     c.tree?1:0,
@@ -4446,40 +6480,103 @@ function saveCity(){
     c.anchor?[c.anchor.x,c.anchor.z]:0,
     c.circle?1:0,
     c.ptype||0,
-    c.wild?1:0
+    c.wild?1:0,
+    Math.min(255, c.age|0),          // index 11 — Phase 2, appended (never reorder 0-10)
+    c.landmark?1:0                   // index 12
   ]);
-  const data={v:2, name:S.cityName, seed:S.seed, money:Math.round(S.money), month:S.month, year:S.year,
-              milestonesHit:S.milestonesHit, hinted:S.hinted, dens:S.dens, tax:S.tax, wildTaken:S.wildTaken||0, devLean:S.devLean||0, term:S.term||1, nextElectionYear:S.nextElectionYear||(S.year+4), electionsWon:S.electionsWon||0, votedOut:!!S.votedOut, peakPop:S.peakPop||0, strikes:S.strikes|0, redMonths:S.redMonths|0, tutDone:S.tutDone?1:0, cells:cells};
+  return {v:SAVE_V, mode:CFG.mode, name:S.cityName, seed:S.seed, money:Math.round(S.money), month:S.month, year:S.year,
+              milestonesHit:S.milestonesHit, hinted:S.hinted, dens:S.dens, tax:S.tax, wildTaken:S.wildTaken||0, devLean:S.devLean||0, term:S.term||1, nextElectionYear:S.nextElectionYear||(S.year+CFG.election.termYears), electionsWon:S.electionsWon||0, votedOut:!!S.votedOut, peakPop:S.peakPop||0, strikes:S.strikes|0, redMonths:S.redMonths|0, tutDone:S.tutDone?1:0,
+              /* Phase 1 — all NEW TOP-LEVEL KEYS. Uint8Array must go through Array.from()
+                 or it stringifies as {"0":1,...} and the loader silently gets an object. */
+              owned:Array.from(S.owned||[]),
+              pool:{res:Math.round(((S.pool&&S.pool.res)||0)*10)/10},
+              mat:Math.round((S.mat||0)*10)/10,
+              bonds:{principal:(S.bonds&&S.bonds.principal)||0},
+              econ:Math.round((S.econ||1)*1000)/1000,
+              econDrift:Math.round((S.econDrift||0)*1000)/1000,
+              marketing:S.marketing|0,
+              pioneers:S._pioneers|0,
+              constr:constrList(),
+              /* Phase 2. Owner names regenerate from nameSeed, so saves stay small and
+                 names stay stable across reloads. */
+              pol:S.pol,
+              lots:Object.keys(lots).map(k=>{ const L=lots[k];
+                return [+k, LOT_KIND.indexOf(L.kind), L.nameSeed>>>0, Math.round(L.attach*100), L.refusals|0, L.since|0]; }),
+              cells:cells};
+}
+function constrList(){
+  const out=[];
+  for(let i=0;i<N*N;i++){ const c=grid[i]; if(c.stage==='uc') out.push([i, c.buildL|0, c.buildT|0]); }
+  return out;
+}
+/* A v1/v2 city predates tract ownership. Grandfather generously: own every tract the player
+   has already touched, plus a block around their densest one, so old saves aren't landlocked. */
+function migrateOwnership(){
+  S.owned=new Uint8Array(TRACTS);
+  if(!CFG.land.enabled){ S.owned.fill(1); return; }
+  const dev=new Int32Array(TRACTS);
+  for(let i=0;i<N*N;i++){
+    const c=grid[i];
+    if(c.type==='empty'||c.type==='rubble') continue;
+    S.owned[tractOf(i)]=1;
+    if(isDev(c)) dev[tractOf(i)]++;
+  }
+  let bi=0; for(let t=1;t<TRACTS;t++) if(dev[t]>dev[bi]) bi=t;
+  const bx=bi%TROW, bz=(bi/TROW)|0;
+  for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
+    const tx=bx+dx, tz=bz+dz;
+    if(tx>=0&&tz>=0&&tx<TROW&&tz<TROW) S.owned[tz*TROW+tx]=1;
+  }
+}
+function saveCity(){
+  const data=buildSave();
   const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   const a=document.createElement('a');
   a.href=url;
   a.download=(S.cityName||'isopolis').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')+'.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  if(typeof sChime==='function') sChime(true);
   toast('\uD83D\uDCBE '+S.cityName+' saved to file','good');
 }
 function loadCity(data){
-  if(!data || (data.v!==1&&data.v!==2) || !Array.isArray(data.cells) || data.cells.length!==N*N) throw new Error('bad save');
+  if(!data || !(data.v>=1 && data.v<=SAVE_V) || !Array.isArray(data.cells) || data.cells.length!==N*N) throw new Error('bad save');
   for(let i=0;i<N*N;i++){
     const c=grid[i];
     clearMesh(c); clearZap(c); clearFlame(c); removeRoundabout(c);
     if(c.treeMesh){ scene.remove(c.treeMesh); c.treeMesh.geometry.dispose(); }
   }
+  if(typeof closeChip==='function') closeChip(true);
+  if(typeof clearMarkers==='function') clearMarkers();
   while(cars.length) killCar(cars.pop());
   for(const p of smokePool){ p.active=false; p.sp.visible=false; p.sp.material.opacity=0; }
   smokeEmitters=[];
   constructionAnims.length=0;
   S.seed=data.seed>>>0;
+  // A v1/v2 save was built under the original rules, so it loads as Classic unless it
+  // says otherwise — legacy cities keep the cadence they were played with.
+  setMode(data.mode || (data.v>=3 ? 'campaign' : 'classic'));
   S.money=+data.money||0;
-  S.month=data.month|0; S.year=data.year|0||2000;
+  S.month=data.month|0; S.year=data.year|0||START_YEAR;
   S.cityName=(''+(data.name||'Loaded City')).slice(0,40);
   S.milestonesHit=data.milestonesHit||{};
   S.hinted=data.hinted||{};
   S.dens=(data.dens&&data.dens.res)?data.dens:{res:'low',com:'low',ind:'low'};
   S.tax=clamp(data.tax!==undefined?+data.tax:7, 0, 20);
   S.wildTaken = data.wildTaken|0;
+  /* Phase 1 state — defaults on missing so v1/v2 saves load clean. */
+  S.pool={res:(data.pool&&+data.pool.res)||CFG.pool.start};
+  S.mat=(data.mat!==undefined)?+data.mat:CFG.materials.start;
+  S.bonds={principal:(data.bonds&&+data.bonds.principal)||0};
+  S.econ=(data.econ!==undefined)?+data.econ:1;
+  S.econDrift=(data.econDrift!==undefined)?+data.econDrift:0;
+  S.marketing=data.marketing|0;
+  S._pioneers=data.pioneers|0;
+  S.sites=0; S._impSpend=0; S._matLocal=0; S._impUnits=0; S._lost=0; S.adv=null;
+  S._pendingConstr = Array.isArray(data.constr) ? data.constr : [];
+  S._pendingOwned  = (Array.isArray(data.owned) && data.owned.length===TRACTS) ? data.owned : null;
   S.devLean = +data.devLean||0;
-  S.term=data.term||1; S.nextElectionYear=data.nextElectionYear||(S.year+4); S.electionsWon=data.electionsWon||0; S.votedOut=!!data.votedOut; S.peakPop=data.peakPop||0;
+  S.term=data.term||1; S.nextElectionYear=data.nextElectionYear||(S.year+CFG.election.termYears); S.electionsWon=data.electionsWon||0; S.votedOut=!!data.votedOut; S.peakPop=data.peakPop||0;
   S.strikes=data.strikes|0; S.redMonths=data.redMonths|0; S.failed=0; S.tutDone=(data.tutDone!==undefined)?(data.tutDone?1:0):1;
   S.view=null; S.fin=null;
   S.polAvg=0; S.crimeAvg=0; S.trafAvg=0; S.approval=55;
@@ -4499,11 +6596,51 @@ function loadCity(data){
     c.circle=!!r[8];
     c.ptype = r[9]||undefined;
     c.wild = !!r[10];
+    c.age = r[11]|0;                  // absent in v1/v2 -> 0; backfilled below
+    c.landmark = !!r[12];
+    if(!r[11] && c.level>=1) c.age=c.level*36;   // estimate age for pre-Phase-2 cities
   }
+  /* Politics state. A v1/v2 save gets trust lots ONLY: loadCity never re-runs genTerrain, so
+     the deterministic homestead tiles may now hold towers. Fresh maps get homesteads at gen. */
+  lots={};
+  if(data.pol) S.pol=Object.assign({pc:3, fav:{growth:10,neighbors:0,greens:0,labor:0}, council:[], upzoned:{},
+                                    docket:[], court:[], petitions:[], protests:[],
+                                    edTaken:0, graft:0, scandal:0, greenbelt:false,
+                                    recallPending:false, nominee:-1, nomFuse:0}, data.pol);
+  else S.pol={pc:3, fav:{growth:10,neighbors:0,greens:0,labor:0}, council:[], upzoned:{},
+              docket:[], court:[], petitions:[], protests:[],
+              edTaken:0, graft:0, scandal:0, greenbelt:false, recallPending:false, nominee:-1, nomFuse:0};
+  if(Array.isArray(data.lots) && data.lots.length){
+    for(const r of data.lots){
+      lots[r[0]]={i:r[0]|0, kind:LOT_KIND[r[1]]||'tenure', nameSeed:r[2]>>>0,
+                  faction:(LOT_KIND[r[1]]==='trust')?'greens':'neighbors',
+                  attach:(r[3]||0)/100, refusals:r[4]|0, since:r[5]|0};
+    }
+  } else if(politicsOn()){
+    for(let i=0;i<N*N;i++){ const c=grid[i]; if(c.type==='preserve'&&c.wild) makeLot(i,'trust'); }
+  }
+  // Ownership and in-flight construction must land BEFORE the mesh pass: the tint is baked
+  // into drawTile, and unfinished sites need a scaffold rather than a finished building.
+  if(S._pendingOwned) S.owned=Uint8Array.from(S._pendingOwned); else migrateOwnership();
+  S._pendingOwned=null;
+  for(const rec of (S._pendingConstr||[])){
+    const ci=rec[0]|0; if(ci<0||ci>=N*N) continue;
+    const cc=grid[ci];
+    if(!ZONE_T[cc.type]) continue;
+    cc.stage='uc'; cc.buildL=rec[1]|0; cc.buildT=rec[2]|0;
+    S.sites++;
+  }
+  S._pendingConstr=null;
+  markZonedDirty();
   drawAll();
   for(let z=0;z<N;z++)for(let x=0;x<N;x++){
     const c=grid[idx(x,z)];
     if(c.tree){ c.treeMesh=makeTreeMesh(x,z); scene.add(c.treeMesh); }
+    if(c.stage==='uc' && c.level===0){                 // restore the grey scaffold, no pop-in
+      setTileBuilding(x,z,buildFor(c.type,c.buildL||1,x,z,c.dens),{mat:scaffoldMat, noAnim:true});
+      if(c.mesh) c.mesh.scale.y=0.35;
+      continue;
+    }
     if(c.circle){ c.circleMesh=makeRoundaboutMesh(x,z); scene.add(c.circleMesh); }
     if(isDev(c)) setTileBuilding(x,z,buildFor(c.type,c.level,x,z,c.dens));
     else if(c.type==='park') setTileBuilding(x,z,parkBuilt(rngFor(x,z,S.seed+40)),{faceRoad:false});
@@ -4519,6 +6656,10 @@ function loadCity(data){
       if(c.ptype==='wind' && typeof addWindRotors==='function') addWindRotors(x,z);
     }
   }
+  // Markers are scene objects, not cell meshes — rebuild them explicitly on load.
+  for(let i=0;i<N*N;i++) if(grid[i].landmark) addMarker(i%N,(i/N)|0,'notice',false);
+  for(const k in lots){ const L=lots[k]; if(isHoldout(L)) addMarker((+k)%N,((+k)/N)|0,'picket',false); }
+  for(const p of (S.pol.protests||[])) addMarker(p.i%N,(p.i/N)|0,'picket',false);
   refreshRoads(); recomputePower(); recalcMaps();
   roadDirty=false; powerDirty=false; mapsDirty=false;
   recalcStats(); recalcDemand();
@@ -4547,6 +6688,37 @@ fileIn.addEventListener('change', ()=>{
   fileIn.value='';
 });
 
+/* ---------- dev: save round-trip assert (?dev) ----------
+   The positional cell array has no schema check, so one off-by-one in the writer corrupts
+   saves silently. This is the cheapest insurance available: serialize -> load -> serialize
+   and compare. Run it after every change to buildSave/loadCity, and especially after
+   Phase 2 appends cell slots 11-12.
+   Call window.__isoRoundTrip() from the console at any time to check a populated city. */
+const DEV = /[?&]dev\b/.test(location.search);
+function saveRoundTrip(){
+  let before;
+  try{ before=JSON.stringify(buildSave()); }
+  catch(err){ console.error('[isopolis] round-trip FAILED to serialize:', err); return false; }
+  try{ loadCity(JSON.parse(before)); }
+  catch(err){ console.error('[isopolis] round-trip FAILED to load its own save:', err); return false; }
+  const after=JSON.stringify(buildSave());
+  if(before===after){ console.log('%c[isopolis] save round-trip OK','color:#52c06a', '('+before.length.toLocaleString()+' bytes, v'+SAVE_V+', '+CFG.mode+')'); return true; }
+  const a=JSON.parse(before), b=JSON.parse(after);
+  const keys=[...new Set([...Object.keys(a),...Object.keys(b)])];
+  for(const k of keys){
+    const ja=JSON.stringify(a[k]), jb=JSON.stringify(b[k]);
+    if(ja===jb) continue;
+    if(k==='cells'){                                  // narrow it to the offending cell + slot
+      for(let i=0;i<Math.max(a.cells.length,b.cells.length);i++){
+        const ca=JSON.stringify(a.cells[i]), cb=JSON.stringify(b.cells[i]);
+        if(ca!==cb){ console.error('[isopolis] round-trip MISMATCH at cell '+i+' (x='+(i%N)+',z='+((i/N)|0)+')\n  saved:  '+ca+'\n  reload: '+cb); break; }
+      }
+    } else console.error('[isopolis] round-trip MISMATCH on key "'+k+'"\n  saved:  '+ja+'\n  reload: '+jb);
+  }
+  return false;
+}
+window.__isoRoundTrip = saveRoundTrip;
+
 /* ============================== MAIN LOOP ============================== */
 let lastT=0, simAcc=0, monthAcc=0, fireAcc=0;
 function frame(t){
@@ -4563,8 +6735,16 @@ function frame(t){
   for(let i=constructionAnims.length-1;i>=0;i--){
     const a=constructionAnims[i];
     if(!a.mesh.parent){ constructionAnims.splice(i,1); continue; }
-    a.s+=dt/0.45;
-    if(a.s>=1){ a.mesh.scale.y=1; constructionAnims.splice(i,1); }
+    a.s+=dt/(a.dur||0.45);
+    if(a.s>=1){ a.mesh.scale.set(1,1,1); constructionAnims.splice(i,1); }
+    else if(a.settle){                       // squash-settle: overshoot decays to rest
+      const k=1-a.s, sq=1+0.06*k*Math.cos(a.s*Math.PI*2.4);
+      a.mesh.scale.y=sq; a.mesh.scale.x=a.mesh.scale.z=1+(1-sq)*0.5;
+    }
+    else if(a.jelly){                        // you poked the toy
+      const k=1-a.s, sq=1+0.10*k*Math.sin(a.s*Math.PI*3.0);
+      a.mesh.scale.y=sq; a.mesh.scale.x=a.mesh.scale.z=1+(1-sq)*0.6;
+    }
     else a.mesh.scale.y=Math.max(0.01, easeOutBack(a.s));
   }
 
@@ -4595,17 +6775,18 @@ function frame(t){
   if(powerDirty){ recomputePower(); powerDirty=false; mapsDirty=true; if(S.view&&!drag) hoverPreview(hoverT); }
   if(mapsDirty&&started){ recalcMaps(); mapsDirty=false; if(S.view&&!drag) hoverPreview(hoverT); }
 
-  if(nightT!==nightTgt){
-    const step=dt*1.6;
-    nightT += clamp(nightTgt-nightT, -step, step);
-    if(Math.abs(nightT-nightTgt)<0.004) nightT=nightTgt;
-    applyNight();
-  }
+  // The clock runs on real seconds and is NEVER multiplied by speedMul — a speed-scaled
+  // cycle turns 5x into a strobing 24-second day. Throttled to 10Hz: the ramp is slow and
+  // applyTod allocates colours.
+  if(todLock===null) todT=(todT + dt*(24/DAY_S))%24;
+  todAcc+=dt;
+  if(todAcc>0.1 || S.view!==todLastView){ todAcc=0; todLastView=S.view; applyTod(); }
 
   updateCars(dt, running);
   updateSmoke(dt, running);
   if(typeof windRotors!=='undefined') for(const _r of windRotors){ _r.visible=!S.view; _r.rotateZ(dt*1.8); }
   updateAlerts(dt);
+  if(typeof updateAudio==='function') updateAudio(dt);
 
   const tt=t/1000;
   for(const sp of activeZaps){
@@ -4617,6 +6798,8 @@ function frame(t){
     sp.scale.set(1.35*s, 1.5*s, 1);
   }
 
+  if(typeof updateGlow==='function') updateGlow();
+  positionChip();                 // keep any anchored chip glued to its tile as the camera moves
   flushGround();
   renderer.render(scene, camera);
 }
@@ -4631,6 +6814,7 @@ function init(){
   buildToolbar();
   buildMapPanel();
   genTerrain();
+  seedFoundingTracts();
   drawAll();
   refreshRoads();
   recomputePower();
@@ -4644,6 +6828,12 @@ function init(){
   tickerTextEl.addEventListener('animationiteration', pickTicker);
   openHelp(true);
   requestAnimationFrame(frame);
+  if(DEV){
+    // ?dev — assert the save format survives a round trip before anything else is built on it.
+    // Note this loads the city it just saved, so dev mode boots straight into play.
+    console.log('%c[isopolis] dev mode','color:#ffc34d;font-weight:bold','· window.__isoRoundTrip() re-checks save/load at any time');
+    setTimeout(saveRoundTrip, 0);
+  }
 }
 /* ---------- custom styled tooltips (replace native title) ---------- */
 const tipDiv=document.createElement('div');

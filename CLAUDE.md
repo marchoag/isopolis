@@ -33,6 +33,24 @@ materials and **which gate bound each year**. The tuning rule is that at any cit
 gate should usually bind (early: migration; mid: money/land; late: congestion/land). If the
 binding gate rotates every month, retune `CFG`.
 
+## Publishing
+
+The game is published at **labs.axiomic.ai/isopolis/**, as one of the Axiomic Labs projects. Publishing is a verbatim copy of `isopolis.html` — no build, no minification, no rewriting. The published copy lives in a different repo (`~/dev/Axiomic`, at `labs/isopolis/index.html`) and is byte-identical to this file.
+
+Publish from the Axiomic repo, not this one:
+
+```
+cd ~/dev/Axiomic
+./bin/sync-isopolis.sh          # copies, prints the diff and this repo's revision
+git add labs/isopolis/index.html
+git commit -m "Update Isopolis to isopolis@<rev>"
+git push                        # Vercel redeploys labs in ~10s
+```
+
+**Committing here does not publish.** The two repos keep separate histories on purpose: this one is the game's development record, the Axiomic one records which build is actually live. Never hand-edit the published copy — it is overwritten by the next sync, silently.
+
+**The `<head>` share-card metadata is load-bearing.** The description, the inline-SVG cube favicon, and the `og:*`/`twitter:*` set sit immediately after `<title>`. They live in this file rather than being injected at publish time so the copy stays dumb and lossless; that is the whole reason publishing can be a plain `cp`. Delete them and the game ships with no favicon and no share card while looking perfectly fine locally — `sync-isopolis.sh` refuses to publish a source that has lost them rather than let that through. `og:image` points at an asset that exists only in the Axiomic repo, which is intentional: this repo has no use for a social card.
+
 ## Navigating the file
 
 Because everything is one file, the `/* ====== SECTION ====== */` banners are the primary navigation aid. Grep for them rather than scrolling:
